@@ -1,0 +1,10 @@
+#!name = WK3 v3.3.3 AQI Isolated Test V2
+#!desc = Isolated WK3 AQI test: preserve Shanghai CN-to-US conversion and add validated mainland US AQI only when the WK3 AQ table is missing.
+#!version = 3.3.3-test.2
+#!homepage = https://github.com/Carson614/WeatherKit-WK3-Test
+
+[Script]
+WK3.AQI.IsolatedTestV2 = type=http-response, pattern=^https?:\/\/weatherkit\.apple\.com\/api\/v3\/weather\/, requires-body=1, binary-body-mode=1, engine=webview, script-path=https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/main/wk3-v3.3.3-aqi-v2-test/wk3-surge-response-v2.bundle.js, argument=DataSets=["airQuality"]&Weather.Replace=["CN"]&AirQuality.Current.Index.Provider="ColorfulCloudsUS"&AirQuality.Current.Index.Replace=["HJ6332012"]&AirQuality.Comparison.Yesterday.IndexProvider="WeatherKit", debug=1
+
+[MITM]
+hostname = %APPEND% weatherkit.apple.com
