@@ -1,0 +1,10 @@
+#!name = WK3 v3.3.3 AQI Isolated Test
+#!desc = Test-only WK3 AQ conversion for Apple Weather; only v3 weather responses are matched.
+#!version = 3.3.3-test.1
+#!homepage = https://github.com/patrickyanxxxxx/WeatherKit-WK3
+
+[Script]
+WK3.AQI.IsolatedTest = type=http-response, pattern=^https?:\/\/weatherkit\.apple\.com\/api\/v3\/weather\/, requires-body=1, binary-body-mode=1, engine=webview, script-path=https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/main/wk3-v3.3.3-aqi-test/wk3-surge-response.bundle.js, argument=DataSets=["airQuality"]&Weather.Replace=["CN"]&AirQuality.Current.Index.Provider="ColorfulCloudsUS"&AirQuality.Current.Index.Replace=["HJ6332012"]&AirQuality.Comparison.Yesterday.IndexProvider="WeatherKit", debug=1
+
+[MITM]
+hostname = %APPEND% weatherkit.apple.com
