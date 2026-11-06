@@ -1,0 +1,11 @@
+#!name = WK3 v3 Full Test V3
+#!desc = Independent V3 test based on the device-verified V2: US AQ conversion/injection, same-source yesterday comparison, WK3 minute precipitation and matched QWeather alert details.
+#!version = 3.3.5-full-test.1
+#!homepage = https://github.com/Carson614/WeatherKit-WK3-Test
+
+[Script]
+WK3.V3Full.Weather = type=http-response, pattern=^https?:\/\/weatherkit\.apple\.com\/api\/v3\/weather\/, requires-body=1, binary-body-mode=1, engine=webview, script-path=https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/main/wk3-v3-full-test/wk3-surge-response-v3-full-test.bundle.js, argument=DataSets=["airQuality","forecastNextHour","weatherAlerts"]&Weather.Replace=["CN"]&NextHour.Provider="ColorfulClouds"&WeatherAlerts.Provider="QWeatherWeb"&AirQuality.Current.Index.Provider="ColorfulCloudsUS"&AirQuality.Current.Index.Replace=["HJ6332012"]&AirQuality.Comparison.Yesterday.IndexProvider="ColorfulCloudsUS"&LogLevel="INFO", timeout=30
+WK3.V3Full.AlertDetails = type=http-request, pattern=^https?:\/\/weatherkit\.apple\.com\/api\/v[12]\/weatherAlerts\?(?:[^#]*&)?ids=wk3_[^&#]*(?:&|$), engine=webview, script-path=https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/main/wk3-v3-full-test/wk3-surge-request-v3-full-test.bundle.js, argument=DataSets=["airQuality","forecastNextHour","weatherAlerts"]&Weather.Replace=["CN"]&NextHour.Provider="ColorfulClouds"&WeatherAlerts.Provider="QWeatherWeb"&AirQuality.Current.Index.Provider="ColorfulCloudsUS"&AirQuality.Current.Index.Replace=["HJ6332012"]&AirQuality.Comparison.Yesterday.IndexProvider="ColorfulCloudsUS"&LogLevel="INFO", timeout=30
+
+[MITM]
+hostname = %APPEND% weatherkit.apple.com
