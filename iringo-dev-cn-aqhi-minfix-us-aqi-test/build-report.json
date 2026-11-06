@@ -1,0 +1,14 @@
+{
+  "buildType": "deterministic fixed-anchor patch of the verified MinFix dev bundle; not a full Rollup/source build",
+  "baseResponseSha256": "7276c52951e490c03fc32171881500a503bff119375c3bc0b926a5df3464b05c",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "outputResponseSha256": "58c0ad30e535a555c41f865bd3406d13daef0d91abd494e2e6f45c2819e15497",
+  "outputRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "changes": [
+    "EPA_NowCast.2604",
+    "ColorfulCloudsUS for current and yesterday",
+    "HJ6332012 replacement",
+    "mainland coordinate gate and query-country precedence",
+    "CN provider country only for mainland coordinates"
+  ]
+}
