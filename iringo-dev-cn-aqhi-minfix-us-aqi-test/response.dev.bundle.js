@@ -9612,7 +9612,7 @@ var database = {
             WeatherAlerts: { Provider: "QWeatherWeb" },
             NextHour: { Provider: "ColorfulClouds" },
             AirQuality: {
-                Current: { Pollutants: { Provider: "ColorfulClouds", Units: { Replace: [], Mode: "Scale" } }, Index: { Replace: ["HJ6332012"], Provider: "ColorfulCloudsUS", ForceCNPrimaryPollutants: true } },
+                Current: { Pollutants: { Provider: "ColorfulClouds", Units: { Replace: [], Mode: "Scale" } }, Index: { Replace: ["HJ6332012", "EU.EAQI", "CN_AQHI", "EPA_NowCast"], Provider: "ColorfulCloudsUS", ForceCNPrimaryPollutants: true } },
                 Comparison: { ReplaceWhenCurrentChange: true, Yesterday: { PollutantsProvider: "QWeather", IndexProvider: "ColorfulCloudsUS" } },
                 Calculate: { Algorithm: "EU_EAQI", AllowOverRange: true },
             },
