@@ -1,0 +1,13 @@
+diff --git a/src/class/AirQuality.mjs b/src/class/AirQuality.mjs
+index 5d50df2..7ffe841 100644
+--- a/src/class/AirQuality.mjs
++++ b/src/class/AirQuality.mjs
+@@ -267,8 +267,6 @@ export default class AirQuality {
+         const getScale = scaleName => {
+             const scales = AirQuality.Config.Scales;
+             switch (scaleName) {
+-                case scales.CN_AQHI.weatherKitScale.name:
+-                    return scales.CN_AQHI;
+                 case scales.HK_AQHI.weatherKitScale.name:
+                     return scales.HK_AQHI;
+                 case scales.CA_AQHI.weatherKitScale.name:
