@@ -10,5 +10,7 @@
     "replace HJ6332012, EU.EAQI, CN_AQHI, and legacy EPA_NowCast",
     "mainland coordinate gate and query-country precedence",
     "CN provider country only for mainland coordinates"
-  ]
+  ],
+  "moduleSha256": "6cd640297add14b90f2b59df1ac3b8ded17c25af937ab50fb9b19b8a17193e90",
+  "scriptPathAssetCommit": "519bf44e8163c7da945d2488ed01ef433fa2aac1"
 }
