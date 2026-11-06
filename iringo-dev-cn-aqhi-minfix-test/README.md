@@ -22,7 +22,7 @@ The test module limits `DataSets` to `airQuality`, sets `Storage=Argument`, and 
 
 10 tests passed: four AQ conversion/configuration regressions and six FlatBuffer root-processor tests. They cover EPA_NowCast, HJ6332012, EU.EAQI and UBA lookup; empty replacements; unknown `CN_AQHI` and future scales; PersistentStore precedence; opaque unknown-slot preservation; and preserving a source slot after a codec failure.
 
-The full upstream Rollup install was not available in this environment: `npm ci` returned 401 while fetching `@nsringo/weatherkit@2.0.0` from GitHub Packages. The published response bundle was therefore derived from the exact pinned Gist bundle with a verified one-branch edit, rather than a fresh dependency-complete Rollup build. No API tokens or request data are included. This is an automated experiment only; iPhone/Surge validation is still pending.
+The full upstream Rollup install was not available in this environment: `npm ci` returned 401 while fetching `@nsringo/weatherkit@2.0.0` from GitHub Packages. The published response bundle was therefore derived from the exact pinned Gist bundle with a verified one-branch edit, rather than a fresh dependency-complete Rollup build. No user-supplied tokens or captured request data were added; the pinned upstream bundle retains its own development defaults. This is an automated experiment only; iPhone/Surge validation is still pending.
 
 ## Artifact hashes (SHA-256)
 
