@@ -19,4 +19,6 @@ Independent test build based on the fixed iRingo dev MinFix snapshot already pub
 
 This is an iPhone Surge test module only. No active Surge configuration was changed and no iPhone acceptance is claimed.
 
-Module SHA-256: `bb5ffabe062bd5f2a351a4535535adc1f76aa32fa611855e18d8ec2084109940`.
+Module SHA-256: `d3767298cf594a1d5690b404952c0223ec089aa0a085a711544bb831c4060f0d`.
+
+Repository branch: `minfix-us-aqi-test-20261106`.
