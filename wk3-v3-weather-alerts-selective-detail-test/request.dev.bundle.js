@@ -10449,6 +10449,7 @@ async function patchWK3QWeatherAlertsDiagnostic(bytes, { language = "zh-CN", tim
         if (failure && !allowPartialDetails) return { bytes: raw, status: failure, eventCount: original.alerts.length, sourceCount: extracted.length, sourceDiagnostics, eventDiagnostics, typeDiagnostics };
         if (!rewriteDetails) return { bytes: raw, status: "matched_rewrite_disabled", eventCount: original.alerts.length, sourceCount: extracted.length, sourceDiagnostics, eventDiagnostics, typeDiagnostics };
         if (failure) {
+            if (!matchesByEvent.some(Boolean)) return { bytes: raw, status: failure, eventCount: original.alerts.length, sourceCount: extracted.length, sourceDiagnostics, eventDiagnostics, typeDiagnostics };
             for (let index = 0; index < matchesByEvent.length; index++) {
                 if (matchesByEvent[index] && !original.alerts[index].detailsUrl) {
                     matchesByEvent[index] = null;
