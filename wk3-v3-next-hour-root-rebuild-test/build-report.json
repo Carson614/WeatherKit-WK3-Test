@@ -14,9 +14,8 @@
   "baseResponseSha256": "e9c1d40ce93e85b423dd2bae2b9775c3a5686a19d5b999ab74f8b10d25d15b28",
   "requestBundleSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
   "responseBundleSha256": "eed7507552b2f7b67e7f9b68fcaee0674c9522b3e1e7ec4fa68599388a223e60",
-  "moduleSha256": null,
-  "scriptPathsAssetCommit": null,
-  "moduleCommitSha": null,
+  "moduleSha256": "99a4611943fedebf52c7ed97f96cc1e39a8890adeafa4716ab2ba5264dedfc03",
+  "scriptPathsAssetCommit": "1d9494476772b5d8e12b5bedc349cb6e08a639ac",
   "validation": {
     "automatedTests": {
       "passed": 25,
