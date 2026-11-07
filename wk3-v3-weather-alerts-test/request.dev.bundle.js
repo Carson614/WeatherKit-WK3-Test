@@ -1,0 +1,10410 @@
+console.log('Date: 2026/11/6 15:21:40');
+console.log('Version: dev');
+console.log('request.dev.bundle.js');
+console.log(' iRingo: 🌤 WeatherKit β');
+/* https://NSRingo.github.io/guide/Weather/weather-kit */
+/**
+ * 当前运行平台名称（脚本平台优先，模块系统次之）。
+ * Current runtime platform name (script platform first, module system second).
+ *
+ * 识别顺序:
+ * Detection order:
+ * 1) `$task` -> Quantumult X
+ * 2) `$loon` -> Loon
+ * 3) `$rocket` -> Shadowrocket
+ * 4) `Egern` -> Egern
+ * 5) `$environment["surge-version"]` -> Surge
+ * 6) `$environment["stash-version"]` -> Stash
+ * 7) `Cloudflare` -> Worker
+ * 8) `process.versions.node` -> Node.js
+ * 9) 默认回落 -> undefined
+ *    default fallback -> undefined
+ *
+ * 说明:
+ * Notes:
+ * - 使用 `'key' in globalThis`，避免 `Object.keys` 对不可枚举全局变量漏检。
+ * - Use `'key' in globalThis` to avoid missing non-enumerable globals with `Object.keys`.
+ *
+ * @type {("Quantumult X" | "Loon" | "Shadowrocket" | "Egern" | "Surge" | "Stash" | "Worker" | "Node.js" | undefined)}
+ */
+const $app = (() => {
+	const has = key => key in globalThis;
+	switch (true) {
+		case has("$task"):
+			return "Quantumult X";
+		case has("$loon"):
+			return "Loon";
+		case has("$rocket"):
+			return "Shadowrocket";
+		case has("Egern"):
+			return "Egern";
+		case Boolean(globalThis.$environment?.["surge-version"]):
+			return "Surge";
+		case Boolean(globalThis.$environment?.["stash-version"]):
+			return "Stash";
+		case has("Cloudflare"):
+			//case has("ServiceWorkerGlobalScope") && has("self") && has("caches") && has("scheduler"):
+			return "Worker";
+		case Boolean(globalThis.process?.versions?.node):
+			return "Node.js";
+		default:
+			return undefined;
+	}
+})();
+
+/**
+ * 统一日志工具，兼容各脚本平台、Worker 与 Node.js。
+ * Unified logger compatible with script platforms, Worker, and Node.js.
+ *
+ * logLevel 用法:
+ * logLevel usage:
+ * - 可读: `Console.logLevel` 返回 `OFF|ERROR|WARN|INFO|DEBUG|ALL`
+ * - Read: `Console.logLevel` returns `OFF|ERROR|WARN|INFO|DEBUG|ALL`
+ * - 可写: 数字 `0~5` 或字符串 `off/error/warn/info/debug/all`
+ * - Write: number `0~5` or string `off/error/warn/info/debug/all`
+ *
+ * @example
+ * Console.logLevel = "debug";
+ * Console.debug("only shown when level >= DEBUG");
+ * Console.logLevel = 2; // WARN
+ */
+class Console {
+	static #counts = new Map([]);
+	static #groups = [];
+	static #times = new Map([]);
+
+	/**
+	 * 清空控制台（当前为空实现）。
+	 * Clear console (currently a no-op).
+	 *
+	 * @returns {void}
+	 */
+	static clear = () => {};
+
+	/**
+	 * 增加计数器并打印当前值。
+	 * Increment counter and print the current value.
+	 *
+	 * @param {string} [label="default"] 计数器名称 / Counter label.
+	 * @returns {void}
+	 */
+	static count = (label = "default") => {
+		switch (Console.#counts.has(label)) {
+			case true:
+				Console.#counts.set(label, Console.#counts.get(label) + 1);
+				break;
+			case false:
+				Console.#counts.set(label, 0);
+				break;
+		}
+		Console.log(`${label}: ${Console.#counts.get(label)}`);
+	};
+
+	/**
+	 * 重置计数器。
+	 * Reset a counter.
+	 *
+	 * @param {string} [label="default"] 计数器名称 / Counter label.
+	 * @returns {void}
+	 */
+	static countReset = (label = "default") => {
+		switch (Console.#counts.has(label)) {
+			case true:
+				Console.#counts.set(label, 0);
+				Console.log(`${label}: ${Console.#counts.get(label)}`);
+				break;
+			case false:
+				Console.warn(`Counter "${label}" doesn’t exist`);
+				break;
+		}
+	};
+
+	/**
+	 * 输出调试日志。
+	 * Print debug logs.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static debug = (...msg) => {
+		if (Console.#level < 4) return;
+		msg = msg.map(m => `🅱️ ${m}`);
+		Console.log(...msg);
+	};
+
+	/**
+	 * 输出错误日志。
+	 * Print error logs.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static error(...msg) {
+		if (Console.#level < 1) return;
+		switch ($app) {
+			case "Surge":
+			case "Loon":
+			case "Stash":
+			case "Egern":
+			case "Shadowrocket":
+			case "Quantumult X":
+			default:
+				msg = msg.map(m => `❌ ${m}`);
+				break;
+			case "Worker":
+			case "Node.js":
+				msg = msg.map(m => `❌ ${m?.stack ?? m}`);
+				break;
+		}
+		Console.log(...msg);
+	}
+
+	/**
+	 * `error` 的别名。
+	 * Alias of `error`.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static exception = (...msg) => Console.error(...msg);
+
+	/**
+	 * 进入日志分组。
+	 * Enter a log group.
+	 *
+	 * @param {string} label 分组名 / Group label.
+	 * @returns {number}
+	 */
+	static group = label => Console.#groups.unshift(label);
+
+	/**
+	 * 退出日志分组。
+	 * Exit the latest log group.
+	 *
+	 * @returns {*}
+	 */
+	static groupEnd = () => Console.#groups.shift();
+
+	/**
+	 * 输出信息日志。
+	 * Print info logs.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static info(...msg) {
+		if (Console.#level < 3) return;
+		msg = msg.map(m => `ℹ️ ${m}`);
+		Console.log(...msg);
+	}
+
+	static #level = 3;
+
+	/**
+	 * 获取日志级别文本。
+	 * Get current log level text.
+	 *
+	 * @returns {"OFF"|"ERROR"|"WARN"|"INFO"|"DEBUG"|"ALL"}
+	 */
+	static get logLevel() {
+		switch (Console.#level) {
+			case 0:
+				return "OFF";
+			case 1:
+				return "ERROR";
+			case 2:
+				return "WARN";
+			case 3:
+			default:
+				return "INFO";
+			case 4:
+				return "DEBUG";
+			case 5:
+				return "ALL";
+		}
+	}
+
+	/**
+	 * 设置日志级别。
+	 * Set current log level.
+	 *
+	 * @param {number|string} level 级别值 / Level value.
+	 */
+	static set logLevel(level) {
+		switch (typeof level) {
+			case "string":
+				level = level.toLowerCase();
+				break;
+			case "number":
+				break;
+			case "undefined":
+			default:
+				level = "warn";
+				break;
+		}
+		switch (level) {
+			case 0:
+			case "off":
+				Console.#level = 0;
+				break;
+			case 1:
+			case "error":
+				Console.#level = 1;
+				break;
+			case 2:
+			case "warn":
+			case "warning":
+			default:
+				Console.#level = 2;
+				break;
+			case 3:
+			case "info":
+				Console.#level = 3;
+				break;
+			case 4:
+			case "debug":
+				Console.#level = 4;
+				break;
+			case 5:
+			case "all":
+				Console.#level = 5;
+				break;
+		}
+	}
+
+	/**
+	 * 输出通用日志。
+	 * Print generic logs.
+	 *
+	 * 说明:
+	 * Notes:
+	 * - 多行字符串参数会按换行拆分为多个独立日志项。
+	 * - Multi-line string arguments are split into multiple log entries by line breaks.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static log = (...msg) => {
+		if (Console.#level === 0) return;
+		msg = msg.flatMap(log => {
+			switch (typeof log) {
+				case "object":
+					return [JSON.stringify(log)];
+				case "bigint":
+				case "number":
+				case "boolean":
+					return [log.toString()];
+				case "string":
+					return log.split(/\r?\n/u);
+				case "undefined":
+				default:
+					return [log];
+			}
+		});
+		Console.#groups.forEach(group => {
+			msg = msg.map(log => `  ${log}`);
+			msg.unshift(`▼ ${group}:`);
+		});
+		msg = ["", ...msg];
+		console.log(msg.join("\n"));
+	};
+
+	/**
+	 * 开始计时。
+	 * Start timer.
+	 *
+	 * @param {string} [label="default"] 计时器名称 / Timer label.
+	 * @returns {Map<string, number>}
+	 */
+	static time = (label = "default") => Console.#times.set(label, Date.now());
+
+	/**
+	 * 结束计时并移除计时器。
+	 * End timer and remove it.
+	 *
+	 * @param {string} [label="default"] 计时器名称 / Timer label.
+	 * @returns {boolean}
+	 */
+	static timeEnd = (label = "default") => Console.#times.delete(label);
+
+	/**
+	 * 输出当前计时器耗时。
+	 * Print elapsed time for a timer.
+	 *
+	 * @param {string} [label="default"] 计时器名称 / Timer label.
+	 * @returns {void}
+	 */
+	static timeLog = (label = "default") => {
+		const time = Console.#times.get(label);
+		if (time) Console.log(`${label}: ${Date.now() - time}ms`);
+		else Console.warn(`Timer "${label}" doesn’t exist`);
+	};
+
+	/**
+	 * 输出警告日志。
+	 * Print warning logs.
+	 *
+	 * @param {...any} msg 日志内容 / Log messages.
+	 * @returns {void}
+	 */
+	static warn(...msg) {
+		if (Console.#level < 2) return;
+		msg = msg.map(m => `⚠️ ${m}`);
+		Console.log(...msg);
+	}
+}
+
+/* https://www.lodashjs.com */
+/**
+ * 轻量 Lodash 工具集。
+ * Lightweight Lodash-like utilities.
+ *
+ * 说明:
+ * Notes:
+ * - 这是 Lodash 的“部分方法”简化实现，不等价于完整 Lodash
+ * - This is a simplified subset, not a full Lodash implementation
+ * - 各方法语义可参考 Lodash 官方文档
+ * - Method semantics can be referenced from official Lodash docs
+ * - 导入时建议使用 `Lodash as _`，遵循 lodash 官方示例惯例
+ * - Use `Lodash as _` when importing, following official lodash example convention
+ *
+ * 参考:
+ * Reference:
+ * - https://www.lodashjs.com
+ * - https://lodash.com
+ */
+class Lodash {
+	/**
+	 * HTML 特殊字符转义。
+	 * Escape HTML special characters.
+	 *
+	 * @param {string} string 输入文本 / Input text.
+	 * @returns {string}
+	 * @see {@link https://lodash.com/docs/#escape lodash.escape}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.escape lodash.escape (中文)}
+	 */
+	static escape(string) {
+		const map = {
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			'"': "&quot;",
+			"'": "&#39;",
+		};
+		return string.replace(/[&<>"']/g, m => map[m]);
+	}
+
+	/**
+	 * 按路径读取对象值。
+	 * Get object value by path.
+	 *
+	 * @param {object} [object={}] 目标对象 / Target object.
+	 * @param {string|string[]} [path=""] 路径 / Path.
+	 * @param {*} [defaultValue=undefined] 默认值 / Default value.
+	 * @returns {*}
+	 * @see {@link https://lodash.com/docs/#get lodash.get}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.get lodash.get (中文)}
+	 */
+	static get(object = {}, path = "", defaultValue = undefined) {
+		// translate array case to dot case, then split with .
+		// a[0].b -> a.0.b -> ['a', '0', 'b']
+		if (!Array.isArray(path)) path = Lodash.toPath(path);
+
+		const result = path.reduce((previousValue, currentValue) => {
+			return Object(previousValue)[currentValue]; // null undefined get attribute will throwError, Object() can return a object
+		}, object);
+		return result === undefined ? defaultValue : result;
+	}
+
+	/**
+	 * 递归合并源对象的自身可枚举属性到目标对象
+	 * Recursively merge source enumerable properties into target object.
+	 * @description 简化版 lodash.merge，用于合并配置对象
+	 * @description A simplified lodash.merge for config merging.
+	 *
+	 * 适用情况:
+	 * - 合并嵌套的配置/设置对象
+	 * - 需要深度合并而非浅层覆盖的场景
+	 * - 多个源对象依次合并到目标对象
+	 *
+	 * 限制:
+	 * - 仅处理普通对象 (Plain Object)，不处理 Date/RegExp 等特殊对象
+	 * - Map/Set 仅支持同类型合并，不递归内部值
+	 * - 数组会被直接覆盖，不会合并数组元素
+	 * - 不处理循环引用，可能导致栈溢出
+	 * - 不复制 Symbol 属性和不可枚举属性
+	 * - 不保留原型链，仅处理自身属性
+	 * - 会修改原始目标对象 (mutates target)
+	 *
+	 * @param {object} object - 目标对象
+	 * @param {object} object - Target object.
+	 * @param {...object} sources - 源对象(可多个)
+	 * @param {...object} sources - Source objects.
+	 * @returns {object} 返回合并后的目标对象
+	 * @returns {object} Merged target object.
+	 * @see {@link https://lodash.com/docs/#merge lodash.merge}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.merge lodash.merge (中文)}
+	 * @example
+	 * const target = { a: { b: 1 }, c: 2 };
+	 * const source = { a: { d: 3 }, e: 4 };
+	 * Lodash.merge(target, source);
+	 * // => { a: { b: 1, d: 3 }, c: 2, e: 4 }
+	 */
+	static merge(object, ...sources) {
+		if (object === null || object === undefined) return object;
+
+		for (const source of sources) {
+			if (source === null || source === undefined) continue;
+
+			for (const key of Object.keys(source)) {
+				const sourceValue = source[key];
+				const targetValue = object[key];
+
+				switch (true) {
+					case Lodash.#isPlainObject(sourceValue) && Lodash.#isPlainObject(targetValue):
+						// 递归合并对象
+						object[key] = Lodash.merge(targetValue, sourceValue);
+						break;
+					case sourceValue instanceof Map && targetValue instanceof Map:
+						// 合并 Map（空 Map 跳过）
+						if (sourceValue.size > 0) {
+							for (const [k, v] of sourceValue) {
+								targetValue.set(k, v);
+							}
+						}
+						break;
+					case sourceValue instanceof Set && targetValue instanceof Set:
+						// 合并 Set（空 Set 跳过）
+						if (sourceValue.size > 0) {
+							for (const v of sourceValue) {
+								targetValue.add(v);
+							}
+						}
+						break;
+					case Array.isArray(sourceValue) && sourceValue.length === 0 && targetValue !== undefined:
+						// 空数组不覆盖已有值
+						break;
+					case (sourceValue instanceof Map && sourceValue.size === 0 && targetValue !== undefined):
+					case (sourceValue instanceof Set && sourceValue.size === 0 && targetValue !== undefined):
+						// 空 Map/Set 不覆盖已有值
+						break;
+					case sourceValue !== undefined:
+						object[key] = sourceValue;
+						break;
+				}
+			}
+		}
+
+		return object;
+	}
+
+	/**
+	 * 判断值是否为普通对象 (Plain Object)
+	 * Check whether a value is a plain object.
+	 * @param {*} value - 要检查的值
+	 * @param {*} value - Value to check.
+	 * @returns {boolean} 如果是普通对象返回 true
+	 * @returns {boolean} Returns true when value is a plain object.
+	 * @see {@link https://lodash.com/docs/#isPlainObject lodash.isPlainObject}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.isPlainObject lodash.isPlainObject (中文)}
+	 */
+	static #isPlainObject(value) {
+		if (value === null || typeof value !== "object") return false;
+		const proto = Object.getPrototypeOf(value);
+		return proto === null || proto === Object.prototype;
+	}
+
+	/**
+	 * 删除对象指定路径并返回对象。
+	 * Omit paths from object and return the same object.
+	 *
+	 * @param {object} [object={}] 目标对象 / Target object.
+	 * @param {string|string[]} [paths=[]] 要删除的路径 / Paths to remove.
+	 * @returns {object}
+	 * @see {@link https://lodash.com/docs/#omit lodash.omit}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.omit lodash.omit (中文)}
+	 */
+	static omit(object = {}, paths = []) {
+		if (!Array.isArray(paths)) paths = [paths.toString()];
+		paths.forEach(path => Lodash.unset(object, path));
+		return object;
+	}
+
+	/**
+	 * 仅保留对象指定键（第一层）。
+	 * Pick selected keys from object (top level only).
+	 *
+	 * @param {object} [object={}] 目标对象 / Target object.
+	 * @param {string|string[]} [paths=[]] 需要保留的键 / Keys to keep.
+	 * @returns {object}
+	 * @see {@link https://lodash.com/docs/#pick lodash.pick}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.pick lodash.pick (中文)}
+	 */
+	static pick(object = {}, paths = []) {
+		if (!Array.isArray(paths)) paths = [paths.toString()];
+		const filteredEntries = Object.entries(object).filter(([key, value]) => paths.includes(key));
+		return Object.fromEntries(filteredEntries);
+	}
+
+	/**
+	 * 按路径写入对象值。
+	 * Set object value by path.
+	 *
+	 * @param {object} object 目标对象 / Target object.
+	 * @param {string|string[]} path 路径 / Path.
+	 * @param {*} value 写入值 / Value.
+	 * @returns {object}
+	 * @see {@link https://lodash.com/docs/#set lodash.set}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.set lodash.set (中文)}
+	 */
+	static set(object, path, value) {
+		if (!Array.isArray(path)) path = Lodash.toPath(path);
+		path.slice(0, -1).reduce((previousValue, currentValue, currentIndex) => (Object(previousValue[currentValue]) === previousValue[currentValue] ? previousValue[currentValue] : (previousValue[currentValue] = /^\d+$/.test(path[currentIndex + 1]) ? [] : {})), object)[path[path.length - 1]] = value;
+		return object;
+	}
+
+	/**
+	 * 将点路径或数组下标路径转换为数组。
+	 * Convert dot/array-index path string into path segments.
+	 *
+	 * @param {string} value 路径字符串 / Path string.
+	 * @returns {string[]}
+	 * @see {@link https://lodash.com/docs/#toPath lodash.toPath}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.toPath lodash.toPath (中文)}
+	 */
+	static toPath(value) {
+		return value
+			.replace(/\[(\d+)\]/g, ".$1")
+			.split(".")
+			.filter(Boolean);
+	}
+
+	/**
+	 * HTML 实体反转义。
+	 * Unescape HTML entities.
+	 *
+	 * @param {string} string 输入文本 / Input text.
+	 * @returns {string}
+	 * @see {@link https://lodash.com/docs/#unescape lodash.unescape}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.unescape lodash.unescape (中文)}
+	 */
+	static unescape(string) {
+		const map = {
+			"&amp;": "&",
+			"&lt;": "<",
+			"&gt;": ">",
+			"&quot;": '"',
+			"&#39;": "'",
+		};
+		return string.replace(/&amp;|&lt;|&gt;|&quot;|&#39;/g, m => map[m]);
+	}
+
+	/**
+	 * 删除对象路径对应的值。
+	 * Remove value by object path.
+	 *
+	 * @param {object} [object={}] 目标对象 / Target object.
+	 * @param {string|string[]} [path=""] 路径 / Path.
+	 * @returns {boolean}
+	 * @see {@link https://lodash.com/docs/#unset lodash.unset}
+	 * @see {@link https://www.lodashjs.com/docs/lodash.unset lodash.unset (中文)}
+	 */
+	static unset(object = {}, path = "") {
+		if (!Array.isArray(path)) path = Lodash.toPath(path);
+		const result = path.reduce((previousValue, currentValue, currentIndex) => {
+			if (currentIndex === path.length - 1) {
+				delete previousValue[currentValue];
+				return true;
+			}
+			return Object(previousValue)[currentValue];
+		}, object);
+		return result;
+	}
+}
+
+/* https://github.com/ljharb/qs */
+/**
+ * 轻量 `qs` 查询字符串工具。
+ * Lightweight `qs` query-string utilities.
+ *
+ * 说明:
+ * Notes:
+ * - 参考 `qs` 的 `parse` / `stringify` 接口设计
+ * - Modeled after the `qs` `parse` / `stringify` API
+ * - `parse` 保持当前项目原有 `$argument` 字符串解析语义
+ * - `parse` preserves the existing `$argument` string parsing semantics
+ * - `stringify` 基于项目内 `Lodash` 路径能力展开对象
+ * - `stringify` expands objects via the in-project `Lodash` path helpers
+ *
+ * 参考:
+ * Reference:
+ * - https://github.com/ljharb/qs
+ * - https://www.npmjs.com/package/qs
+ */
+class qs {
+	/**
+	 * 将查询字符串解析为对象。
+	 * Parse a query string into an object.
+	 *
+	 * @param {string | Record<string, unknown> | null | undefined} [query=""] 查询字符串或对象 / Query string or object.
+	 * @returns {Record<string, unknown>}
+	 */
+	static parse(query) {
+		let result = {};
+		switch (typeof query) {
+			case "string": {
+				const source = query.replace(/^\?/, "");
+				if (!source) break;
+				const obj = Object.fromEntries(
+					source
+						.split("&")
+						.filter(Boolean)
+						.map(item => {
+							const [rawKey = "", rawValue = ""] = item.split("=", 2);
+							const key = qs.#decode(rawKey).replace(/\[([^\[\]]+)\]/g, ".$1");
+							return [key, qs.#decode(rawValue).replace(/\"/g, "")];
+						}),
+				);
+				Object.keys(obj).forEach(key => Lodash.set(result, key, obj[key]));
+				break;
+			}
+			case "object": {
+				switch (query) {
+					case null:
+						break;
+					default: {
+						const obj = {};
+						Object.keys(query).forEach(key => Lodash.set(obj, key, query[key]));
+						result = obj;
+						break;
+					}
+				}
+				break;
+			}
+			case "undefined":
+				result = {};
+				break;
+		}
+		return result;
+	}
+
+	/**
+	 * 将对象序列化为查询字符串。
+	 * Serialize an object into a query string.
+	 *
+	 * @param {Record<string, unknown>} [object={}] 输入对象 / Input object.
+	 * @returns {string}
+	 */
+	static stringify(object = {}) {
+		if (!object || typeof object !== "object") return "";
+
+		const entries = [];
+		Object.keys(object).forEach(key => qs.#collect(object, key, entries));
+
+		if (entries.length === 0) return "";
+		return entries
+			.map(([key, value]) => `${qs.#encode(qs.#formatPath(key))}=${qs.#encode(value)}`)
+			.join("&");
+	}
+
+	/**
+	 * 收集待序列化的键值对。
+	 * Collect key-value pairs for stringification.
+	 *
+	 * @param {Record<string, unknown>} object 输入对象 / Input object.
+	 * @param {string} path 当前路径 / Current path.
+	 * @param {[string, string][]} entries 输出数组 / Output entries.
+	 * @returns {void}
+	 */
+	static #collect(object, path, entries) {
+		const value = Lodash.get(object, path);
+		if (value === undefined) return;
+		if (value === null) {
+			entries.push([path, ""]);
+			return;
+		}
+		if (Array.isArray(value)) {
+			value.forEach((item, index) => {
+				if (item === undefined) return;
+				qs.#collect(object, `${path}[${index}]`, entries);
+			});
+			return;
+		}
+		if (qs.#isPlainObject(value)) {
+			Object.keys(value).forEach(key => qs.#collect(object, `${path}.${key}`, entries));
+			return;
+		}
+		entries.push([path, String(value)]);
+	}
+
+	/**
+	 * 使用 `Lodash.toPath` 规范化输出路径。
+	 * Normalize output path via `Lodash.toPath`.
+	 *
+	 * @param {string} path 原始路径 / Raw path.
+	 * @returns {string}
+	 */
+	static #formatPath(path) {
+		const [head, ...tail] = Lodash.toPath(path);
+		return tail.reduce((result, segment) => (/^\d+$/.test(segment) ? `${result}[${segment}]` : `${result}.${segment}`), head);
+	}
+
+	/**
+	 * 判断值是否为普通对象。
+	 * Check whether a value is a plain object.
+	 *
+	 * @param {unknown} value 输入值 / Input value.
+	 * @returns {boolean}
+	 */
+	static #isPlainObject(value) {
+		if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+		const proto = Object.getPrototypeOf(value);
+		return proto === null || proto === Object.prototype;
+	}
+
+	/**
+	 * 编码查询字符串片段。
+	 * Encode a query-string fragment.
+	 *
+	 * @param {string} value 原始值 / Raw value.
+	 * @returns {string}
+	 */
+	static #encode(value) {
+		return encodeURIComponent(value);
+	}
+
+	/**
+	 * 解码查询字符串片段。
+	 * Decode a query-string fragment.
+	 *
+	 * @param {string} value 编码值 / Encoded value.
+	 * @returns {string}
+	 */
+	static #decode(value) {
+		return decodeURIComponent(value.replace(/\+/g, " "));
+	}
+}
+
+/**
+ * 统一 `$argument` 输入格式并展开深路径。
+ * Normalize `$argument` input format and expand deep paths.
+ *
+ * 平台差异:
+ * Platform differences:
+ * - Surge / Stash / Egern 常见为字符串参数: `a=1&b=2`
+ * - Surge / Stash / Egern usually pass string args: `a=1&b=2`
+ * - Loon 支持字符串和对象两种形态
+ * - Loon supports both string and object forms
+ * - Quantumult X / Shadowrocket 一般不提供 `$argument`
+ * - Quantumult X / Shadowrocket usually do not expose `$argument`
+ *
+ * 执行时机:
+ * Execution timing:
+ * - 该模块为即时执行模块，`import` 时立即处理全局 `$argument`
+ * - This module executes immediately and mutates global `$argument` on import
+ *
+ * 归一化规则补充:
+ * Normalization details:
+ * - 使用 `globalThis.$argument` 读写，避免运行环境下未声明变量引用问题
+ * - Read/write via `globalThis.$argument` to avoid undeclared variable access
+ * - 当 `$argument` 为 `null` 或 `undefined` 时，会重置为 `{}`
+ * - When `$argument` is `null` or `undefined`, it is normalized to `{}`
+ */
+(() => {
+	Console.debug("☑️ $argument");
+	globalThis.$argument = qs.parse(globalThis.$argument);
+	if (globalThis.$argument.LogLevel) Console.logLevel = globalThis.$argument.LogLevel;
+	Console.debug("✅ $argument", `$argument: ${JSON.stringify(globalThis.$argument)}`);
+})();
+
+/**
+ * HTTP 状态码文本映射表。
+ * HTTP status code to status text map.
+ *
+ * 主要用途:
+ * Primary usage:
+ * - 为 Quantumult X 的 `$done` 状态行拼接提供状态文本
+ * - Provide status text for Quantumult X `$done` status-line composition
+ * - QX 在部分场景要求 `status` 为完整状态行（如 `HTTP/1.1 200 OK`）
+ * - QX may require full status line (e.g. `HTTP/1.1 200 OK`) in some cases
+ *
+ * 参考:
+ * Reference:
+ * - https://github.com/crossutility/Quantumult-X/raw/refs/heads/master/sample-rewrite-response-header.js
+ *
+ * @type {Record<number, string>}
+ */
+const StatusTexts = {
+	100: "Continue",
+	101: "Switching Protocols",
+	102: "Processing",
+	103: "Early Hints",
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	203: "Non-Authoritative Information",
+	204: "No Content",
+	205: "Reset Content",
+	206: "Partial Content",
+	207: "Multi-Status",
+	208: "Already Reported",
+	226: "IM Used",
+	300: "Multiple Choices",
+	301: "Moved Permanently",
+	302: "Found",
+	304: "Not Modified",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+	400: "Bad Request",
+	401: "Unauthorized",
+	402: "Payment Required",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	406: "Not Acceptable",
+	407: "Proxy Authentication Required",
+	408: "Request Timeout",
+	409: "Conflict",
+	410: "Gone",
+	411: "Length Required",
+	412: "Precondition Failed",
+	413: "Content Too Large",
+	414: "URI Too Long",
+	415: "Unsupported Media Type",
+	416: "Range Not Satisfiable",
+	417: "Expectation Failed",
+	418: "I'm a teapot",
+	421: "Misdirected Request",
+	422: "Unprocessable Entity",
+	423: "Locked",
+	424: "Failed Dependency",
+	425: "Too Early",
+	426: "Upgrade Required",
+	428: "Precondition Required",
+	429: "Too Many Requests",
+	431: "Request Header Fields Too Large",
+	451: "Unavailable For Legal Reasons",
+	500: "Internal Server Error",
+	501: "Not Implemented",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
+	505: "HTTP Version Not Supported",
+	506: "Variant Also Negotiates",
+	507: "Insufficient Storage",
+	508: "Loop Detected",
+	510: "Not Extended",
+	511: "Network Authentication Required",
+};
+
+/**
+ * `done` 的统一入参结构。
+ * Unified `done` input payload.
+ *
+ * @typedef {object} DonePayload
+ * @property {number|string} [status] 响应状态码或状态行 / Response status code or status line.
+ * @property {string} [url] 响应 URL / Response URL.
+ * @property {Record<string, any>} [headers] 响应头 / Response headers.
+ * @property {string|ArrayBuffer|ArrayBufferView} [body] 响应体 / Response body.
+ * @property {ArrayBuffer} [bodyBytes] 二进制响应体 / Binary response body.
+ * @property {string} [policy] 指定策略名 / Preferred policy name.
+ */
+
+/**
+ * 结束脚本执行并按平台转换参数。
+ * Complete script execution with platform-specific parameter mapping.
+ *
+ * 说明:
+ * Notes:
+ * - 这是调用入口，平台原生 `$done` 差异在内部处理
+ * - This is the call entry and native `$done` differences are handled internally
+ * - Worker 不调用 `$done` 或退出进程，仅记录日志
+ * - Worker neither calls `$done` nor exits the process; it only logs
+ * - Node.js 不调用 `$done`，而是直接退出进程
+ * - Node.js does not call `$done`; it exits the process directly
+ * - 未识别平台仅记录结束日志，不会强制退出
+ * - Unknown runtimes only log completion and do not force an exit
+ *
+ * @param {DonePayload} [object={}] 统一响应对象 / Unified response object.
+ * @returns {void}
+ */
+function done(object = {}) {
+	switch ($app) {
+		case "Surge":
+			if (object.policy) Lodash.set(object, "headers.X-Surge-Policy", object.policy);
+			Console.log("🚩 执行结束!", `🕛 ${new Date().getTime() / 1000 - $script.startTime} 秒`);
+			$done(object);
+			break;
+		case "Loon":
+			if (object.policy) object.node = object.policy;
+			Console.log("🚩 执行结束!", `🕛 ${(new Date() - $script.startTime) / 1000} 秒`);
+			$done(object);
+			break;
+		case "Stash":
+			if (object.policy) Lodash.set(object, "headers.X-Stash-Selected-Proxy", encodeURI(object.policy));
+			Console.log("🚩 执行结束!", `🕛 ${(new Date() - $script.startTime) / 1000} 秒`);
+			$done(object);
+			break;
+		case "Egern":
+			Console.log("🚩 执行结束!");
+			$done(object);
+			break;
+		case "Shadowrocket":
+			Console.log("🚩 执行结束!");
+			$done(object);
+			break;
+		case "Quantumult X":
+			if (object.policy) Lodash.set(object, "opts.policy", object.policy);
+			object = Lodash.pick(object, ["status", "url", "headers", "body", "bodyBytes"]);
+			switch (typeof object.status) {
+				case "number":
+					object.status = `HTTP/1.1 ${object.status} ${StatusTexts[object.status]}`;
+					break;
+				case "string":
+				case "undefined":
+					break;
+				default:
+					throw new TypeError(`${Function.name}: 参数类型错误, status 必须为数字或字符串`);
+			}
+			if (object.body instanceof ArrayBuffer) {
+				object.bodyBytes = object.body;
+				object.body = undefined;
+			} else if (ArrayBuffer.isView(object.body)) {
+				object.bodyBytes = object.body.buffer.slice(object.body.byteOffset, object.body.byteLength + object.body.byteOffset);
+				object.body = undefined;
+			} else if (object.body) object.bodyBytes = undefined;
+			Console.log("🚩 执行结束!");
+			$done(object);
+			break;
+		case "Worker":
+			Console.log("🚩 执行结束!");
+			break;
+		case "Node.js":
+			Console.log("🚩 执行结束!");
+			process.exit(1);
+			break;
+		default:
+			Console.log("🚩 执行结束!");
+			break;
+	}
+}
+
+/**
+ * 按模板格式化时间字符串。
+ * Format date/time into a template string.
+ *
+ * 支持占位符:
+ * Supported tokens:
+ * - `YY`, `yyyy`, `MM`, `dd`, `HH`, `mm`, `ss`, `sss`, `S`
+ *
+ * @param {string} format 格式模板 / Format template.
+ * @param {number} [ts] 可选时间戳 / Optional timestamp.
+ * @returns {string}
+ */
+function time(format, ts) {
+	const date = ts ? new Date(ts) : new Date();
+	const Time = {
+		YY: date.getFullYear().toString().substring(3),
+		yyyy: date.getFullYear().toString(),
+		MM: (date.getMonth() + 1).toString().padStart(2, "0"),
+		dd: date.getDate().toString().padStart(2, "0"),
+		HH: date.getHours().toString().padStart(2, "0"),
+		mm: date.getMinutes().toString().padStart(2, "0"),
+		sss: date.getMilliseconds().toString().padStart(3, "0"),
+		ss: date.getSeconds().toString().padStart(2, "0"),
+		S: `${Math.floor(date.getMonth() / 3) + 1}`,
+	};
+	for (const [key, value] of Object.entries(Time)) {
+		format = format.replace(key, value);
+	}
+	return format;
+}
+
+/**
+ * 统一请求参数。
+ * Unified request payload.
+ *
+ * @typedef {object} FetchRequest
+ * @property {string} url 请求地址 / Request URL.
+ * @property {string} [method] 请求方法 / HTTP method.
+ * @property {Record<string, any>} [headers] 请求头 / Request headers.
+ * @property {string|ArrayBuffer|ArrayBufferView|object} [body] 请求体 / Request body.
+ * @property {ArrayBuffer} [bodyBytes] 二进制请求体 / Binary request body.
+ * @property {number|string} [timeout] 超时（秒或毫秒）/ Timeout (seconds or milliseconds).
+ * @property {string} [policy] 指定策略 / Preferred policy.
+ * @property {boolean} [redirection] 是否跟随重定向 / Whether to follow redirects.
+ * @property {boolean} ["auto-redirect"] 平台重定向字段 / Platform redirect flag.
+ * @property {boolean|number|string} ["auto-cookie"] Worker / Node.js Cookie 开关 / Worker / Node.js Cookie toggle.
+ * @property {Record<string, any>} [opts] 平台扩展字段 / Platform extension fields.
+ */
+
+/**
+ * 统一响应结构。
+ * Unified response payload.
+ *
+ * @typedef {object} FetchResponse
+ * @property {boolean} ok 请求是否成功 / Whether request is successful.
+ * @property {number} status 状态码 / HTTP status code.
+ * @property {number} [statusCode] 状态码别名 / Status code alias.
+ * @property {string} [statusText] 状态文本 / HTTP status text.
+ * @property {Record<string, any>} [headers] 响应头 / Response headers.
+ * @property {string|ArrayBuffer} [body] 响应体 / Response body.
+ * @property {ArrayBuffer} [bodyBytes] 二进制响应体 / Binary response body.
+ */
+
+/**
+ * 跨平台 `fetch` 适配层。
+ * Cross-platform `fetch` adapter.
+ *
+ * 设计目标:
+ * Design goal:
+ * - 仿照 Web API `fetch`（`Window.fetch`）接口设计
+ * - Modeled after Web API `fetch` (`Window.fetch`)
+ * - 统一 VPN App、Worker 与 Node.js 环境中的请求调用
+ * - Unify request calls across VPN apps, Worker, and Node.js
+ *
+ * 功能:
+ * Features:
+ * - 统一 Quantumult X / Loon / Surge / Stash / Egern / Shadowrocket / Worker / Node.js 请求接口
+ * - Normalize request APIs across Quantumult X / Loon / Surge / Stash / Egern / Shadowrocket / Worker / Node.js
+ * - 统一返回体字段（`ok/status/statusText/body/bodyBytes`）
+ * - Normalize response fields (`ok/status/statusText/body/bodyBytes`)
+ *
+ * 与 Web `fetch` 的已知差异:
+ * Known differences from Web `fetch`:
+ * - 支持 `policy`、`auto-redirect` 等平台扩展字段
+ * - Supports platform extension fields like `policy` and `auto-redirect`
+ * - Worker / Node.js 共享基于 `fetch` 的请求分支
+ * - Worker / Node.js share the `fetch`-based request branch
+ * - Node.js ESM 的 `auto-cookie` 由 `fetch.node.mjs` 处理，本文件只使用宿主 `fetch`
+ * - Node.js ESM `auto-cookie` is handled by `fetch.node.mjs`; this module only uses the host `fetch`
+ * - 非浏览器平台通过 `$httpClient/$task` 实现，不是原生 Fetch 实现
+ * - Non-browser platforms use `$httpClient/$task` instead of native Fetch engine
+ * - 返回结构包含 `statusCode/bodyBytes` 等兼容字段
+ * - Response includes compatibility fields like `statusCode/bodyBytes`
+ *
+ * @link https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch
+ * @link https://developer.mozilla.org/zh-CN/docs/Web/API/Window/fetch
+ * @async
+ * @param {FetchRequest|string} resource 请求对象或 URL / Request object or URL string.
+ * @param {Partial<FetchRequest>} [options={}] 追加参数 / Extra options.
+ * @returns {Promise<FetchResponse>}
+ */
+async function fetch(resource, options = {}) {
+	// 初始化参数。
+	// Initialize request input.
+	switch (typeof resource) {
+		case "object":
+			resource = { ...options, ...resource };
+			break;
+		case "string":
+			resource = { ...options, url: resource };
+			break;
+		case "undefined":
+		default:
+			throw new TypeError(`${Function.name}: 参数类型错误, resource 必须为对象或字符串`);
+	}
+	// 自动判断请求方法。
+	// Infer the HTTP method automatically.
+	if (!resource.method) {
+		resource.method = "GET";
+		if (resource.body ?? resource.bodyBytes) resource.method = "POST";
+	}
+	// 移除需要由底层实现自动生成的请求头。
+	// Remove headers that should be generated by the underlying runtime.
+	delete resource.headers?.Host;
+	delete resource.headers?.[":authority"];
+	delete resource.headers?.["Content-Length"];
+	delete resource.headers?.["content-length"];
+	// 统一请求方法为小写，方便后续索引平台 API。
+	// Normalize the method to lowercase for platform API lookups.
+	const method = resource.method.toLocaleLowerCase();
+	// 默认请求超时时间为 5 秒。
+	// Default request timeout to 5 seconds.
+	if (!resource.timeout) resource.timeout = 5;
+	if (resource.timeout) {
+		resource.timeout = Number.parseInt(resource.timeout, 10);
+		// 统一先转换为秒，大于 500 视为毫秒输入。
+		// Convert to seconds first and treat values above 500 as milliseconds.
+		if (resource.timeout > 500) resource.timeout = Math.round(resource.timeout / 1000);
+	}
+	if (resource.timeout) {
+		switch ($app) {
+			case "Loon":
+			case "Quantumult X":
+			case "Worker":
+			case "Node.js":
+				// 这些平台要求毫秒，因此把秒重新换算为毫秒。
+				// These platforms expect milliseconds, so convert seconds back to milliseconds.
+				resource.timeout = resource.timeout * 1000;
+				break;
+		}
+	}
+	// 根据当前平台选择请求实现。
+	// Select the request engine for the current platform.
+	switch ($app) {
+		case "Loon":
+		case "Surge":
+		case "Stash":
+		case "Egern":
+		case "Shadowrocket":
+			// 转换通用请求参数到 `$httpClient` 语义。
+			// Map shared request fields to `$httpClient` semantics.
+			if (resource.policy) {
+				switch ($app) {
+					case "Loon":
+						resource.node = resource.policy;
+						break;
+					case "Stash":
+						Lodash.set(resource, "headers.X-Stash-Selected-Proxy", encodeURI(resource.policy));
+						break;
+					case "Shadowrocket":
+						Lodash.set(resource, "headers.X-Surge-Proxy", resource.policy);
+						break;
+				}
+			}
+			if (typeof resource.redirection === "boolean") resource["auto-redirect"] = resource.redirection;
+			// 优先把 `bodyBytes` 映射回 `$httpClient` 能接受的 `body`。
+			// Prefer mapping `bodyBytes` back to the `body` field expected by `$httpClient`.
+			if (resource.bodyBytes && !resource.body) {
+				resource.body = resource.bodyBytes;
+				resource.bodyBytes = undefined;
+			}
+			// 根据 `Accept` 推断是否需要二进制响应体。
+			// Infer whether the response should be treated as binary from `Accept`.
+			switch ((resource.headers?.Accept || resource.headers?.accept)?.split(";")?.[0]) {
+				case "application/protobuf":
+				case "application/x-protobuf":
+				case "application/vnd.google.protobuf":
+				case "application/vnd.apple.flatbuffer":
+				case "application/grpc":
+				case "application/grpc-web":
+				case "application/grpc+proto":
+				case "application/octet-stream":
+					resource["binary-mode"] = true;
+					break;
+			}
+			// 发送 `$httpClient` 请求并归一化返回结构。
+			// Send the `$httpClient` request and normalize the response payload.
+			return new Promise((resolve, reject) => {
+				globalThis.$httpClient[method](resource, (error, response, body) => {
+					if (error) reject(error);
+					else {
+						response.ok = /^2\d\d$/.test(response.status);
+						response.statusCode = response.status;
+						response.statusText = StatusTexts[response.status];
+						if (body) {
+							response.body = body;
+							if (resource["binary-mode"] == true) response.bodyBytes = body;
+						}
+						resolve(response);
+					}
+				});
+			});
+		case "Quantumult X":
+			// 转换 Quantumult X 专有请求参数。
+			// Map request fields to Quantumult X specific options.
+			if (resource.policy) Lodash.set(resource, "opts.policy", resource.policy);
+			if (typeof resource["auto-redirect"] === "boolean") Lodash.set(resource, "opts.redirection", resource["auto-redirect"]);
+			// Quantumult X 使用 `bodyBytes` 传输二进制请求体。
+			// Quantumult X uses `bodyBytes` for binary request payloads.
+			if (resource.body instanceof ArrayBuffer) {
+				resource.bodyBytes = resource.body;
+				resource.body = undefined;
+			} else if (ArrayBuffer.isView(resource.body)) {
+				resource.bodyBytes = resource.body.buffer.slice(resource.body.byteOffset, resource.body.byteLength + resource.body.byteOffset);
+				resource.body = undefined;
+			} else if (resource.body) resource.bodyBytes = undefined;
+			// 发送请求，并用 `Promise.race` 提供统一超时保护。
+			// Send the request and enforce timeout with `Promise.race`.
+			return Promise.race([
+				globalThis.$task.fetch(resource).then(
+					response => {
+						response.ok = /^2\d\d$/.test(response.statusCode);
+						response.status = response.statusCode;
+						response.statusText = StatusTexts[response.status];
+						switch ((response.headers?.["Content-Type"] ?? response.headers?.["content-type"])?.split(";")?.[0]) {
+							case "application/protobuf":
+							case "application/x-protobuf":
+							case "application/vnd.google.protobuf":
+							case "application/vnd.apple.flatbuffer":
+							case "application/grpc":
+							case "application/grpc-web":
+							case "application/grpc+proto":
+							case "application/octet-stream":
+								response.body = response.bodyBytes;
+								break;
+						}
+						response.bodyBytes = undefined;
+						return response;
+					},
+					reason => Promise.reject(reason.error),
+				),
+				new Promise((resolve, reject) => {
+					setTimeout(() => {
+						reject(new Error(`${Function.name}: 请求超时, 请检查网络后重试`));
+					}, resource.timeout);
+				}),
+			]);
+		case "Worker":
+		case "Node.js":
+		default: {
+			let request;
+			let timeout;
+			let shouldWrapError = false;
+			switch ($app) {
+				case "Worker":
+				case "Node.js":
+					switch (typeof globalThis.fetch) {
+						case "function":
+							break;
+						default:
+							throw new Error(`${Function.name}: 当前运行环境不支持 Fetch API`);
+					}
+					// 将通用字段映射到 Worker / Node.js Fetch 语义。
+					// Map shared fields to Worker / Node.js Fetch semantics.
+					resource.redirect = resource.redirection ? "follow" : "manual";
+					request = resource;
+					timeout = resource.timeout;
+					shouldWrapError = true;
+					break;
+				default: {
+					// 未识别宿主也可使用完整标准 Fetch API；不将能力推断为宿主类型。
+					// An unrecognized host may still use the complete standard Fetch API; capability does not imply a host type.
+					if (typeof globalThis.fetch !== "function" || typeof globalThis.Headers !== "function" || typeof globalThis.Request !== "function" || typeof globalThis.Response !== "function") {
+						throw new Error(`${Function.name}: 当前运行环境不支持 Fetch API`);
+					}
+					const { url, bodyBytes, redirection, timeout: _timeout, policy: _policy, "auto-redirect": _autoRedirect, "auto-cookie": _autoCookie, opts: _opts, ...fetchOptions } = resource;
+					if (bodyBytes !== undefined && fetchOptions.body === undefined) fetchOptions.body = bodyBytes;
+					fetchOptions.redirect = redirection ? "follow" : "manual";
+					request = { url, ...fetchOptions };
+					timeout = resource.timeout * 1000;
+					break;
+				}
+			}
+			const { url, ...options } = request;
+			// 发起请求并归一化响应头、文本与二进制响应体。
+			// Send the request and normalize headers, text, and binary response data.
+			const responsePromise = globalThis.fetch(url, options).then(async response => {
+				const bodyBytes = await response.arrayBuffer();
+				let headers;
+				try {
+					headers = response.headers.raw();
+				} catch {
+					headers = Array.from(response.headers.entries()).reduce((acc, [key, value]) => {
+						acc[key] = acc[key] ? [...acc[key], value] : [value];
+						return acc;
+					}, {});
+				}
+				return {
+					ok: response.ok ?? /^2\d\d$/.test(response.status),
+					status: response.status,
+					statusCode: response.status,
+					statusText: response.statusText,
+					body: new TextDecoder("utf-8").decode(bodyBytes),
+					bodyBytes: bodyBytes,
+					headers: Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, key.toLowerCase() !== "set-cookie" ? value.toString() : value])),
+				};
+			});
+			return Promise.race([
+				shouldWrapError ? responsePromise.catch(error => Promise.reject(error.message)) : responsePromise,
+				new Promise((_resolve, reject) => {
+					setTimeout(() => {
+						reject(new Error(`${Function.name}: 请求超时, 请检查网络后重试`));
+					}, timeout);
+				}),
+			]);
+		}
+	}
+}
+
+/**
+ * 跨平台持久化存储适配器。
+ * Cross-platform persistent storage adapter.
+ *
+ * 设计目标:
+ * Design goal:
+ * - 仿照 Web Storage (`Storage`) 接口设计
+ * - Modeled after Web Storage (`Storage`) interface
+ * - 统一 VPN App 脚本环境中的持久化读写接口
+ * - Unify persistence APIs across VPN app script environments
+ *
+ * 支持后端:
+ * Supported backends:
+ * - Surge/Loon/Stash/Egern/Shadowrocket: `$persistentStore`
+ * - Quantumult X: `$prefs`
+ * - Worker: 内存缓存（非持久化）
+ * - Worker: in-memory cache (non-persistent)
+ * - Node.js: 由 Node.js ESM 入口注入持久化后端
+ * - Node.js: persistent backend injected by the Node.js ESM entry
+ *
+ * 支持路径键:
+ * Supports path key:
+ * - `@root.path.to.value`
+ *
+ * 与 Web Storage 的已知差异:
+ * Known differences from Web Storage:
+ * - 支持 `@key.path` 深路径读写（Web Storage 原生不支持）
+ * - Supports `@key.path` deep-path access (not native in Web Storage)
+ * - `removeItem/clear` 并非所有平台都可用
+ * - `removeItem/clear` are not available on every platform
+ * - 读取时会尝试 `JSON.parse`，写入对象会 `JSON.stringify`
+ * - Reads try `JSON.parse`, writes stringify objects
+ *
+ * @link https://developer.mozilla.org/en-US/docs/Web/API/Storage
+ * @link https://developer.mozilla.org/zh-CN/docs/Web/API/Storage
+ */
+class Storage {
+	/**
+	 * Worker / Node.js 环境下的内存数据缓存。
+	 * In-memory data cache for Worker / Node.js runtime.
+	 *
+	 * @type {Record<string, any>|null}
+	 */
+	static data = null;
+
+	/**
+	 * Node.js 持久化文件名。
+	 * Data file name used in Node.js.
+	 *
+	 * @type {string}
+	 */
+	static dataFile = "box.dat";
+
+	/**
+	 * Node.js ESM 入口注入的存储后端。
+	 * Storage backend injected by the Node.js ESM entry.
+	 *
+	 * @type {{load: (dataFile: string) => Record<string, any>, write: (dataFile: string, data: Record<string, any>) => void}|null}
+	 */
+	static nodeBackend = null;
+
+	/**
+	 * `@key.path` 解析正则。
+	 * Regex for `@key.path` parsing.
+	 *
+	 * @type {RegExp}
+	 */
+	static #nameRegex = /^@(?<key>[^.]+)(?:\.(?<path>.*))?$/;
+
+	/**
+	 * 读取存储值。
+	 * Read value from persistent storage.
+	 *
+	 * @param {string} keyName 键名或路径键 / Key or path key.
+	 * @param {*} [defaultValue=null] 默认值 / Default value when key is missing.
+	 * @returns {*}
+	 */
+	static getItem(keyName, defaultValue = null) {
+		let keyValue = defaultValue;
+		// 如果以 @
+		switch (keyName.startsWith("@")) {
+			case true: {
+				const { key, path } = keyName.match(Storage.#nameRegex)?.groups;
+				keyName = key;
+				let value = Storage.getItem(keyName, {});
+				if (typeof value !== "object") value = {};
+				keyValue = Lodash.get(value, path);
+				try {
+					keyValue = JSON.parse(keyValue);
+				} catch {}
+				break;
+			}
+			default:
+				switch ($app) {
+					case "Surge":
+					case "Loon":
+					case "Stash":
+					case "Egern":
+					case "Shadowrocket":
+						keyValue = $persistentStore.read(keyName);
+						break;
+					case "Quantumult X":
+						keyValue = $prefs.valueForKey(keyName);
+						break;
+					case "Worker":
+						Storage.data = Storage.data ?? {};
+						keyValue = Storage.data[keyName];
+						break;
+					case "Node.js":
+						Storage.data = Storage.nodeBackend.load(Storage.dataFile);
+						keyValue = Storage.data?.[keyName];
+						break;
+					default:
+						keyValue = Storage.data?.[keyName] || null;
+						break;
+				}
+				try {
+					keyValue = JSON.parse(keyValue);
+				} catch {
+					// do nothing
+				}
+				break;
+		}
+		return keyValue ?? defaultValue;
+	}
+
+	/**
+	 * 写入存储值。
+	 * Write value into persistent storage.
+	 *
+	 * @param {string} keyName 键名或路径键 / Key or path key.
+	 * @param {*} keyValue 写入值 / Value to store.
+	 * @returns {boolean}
+	 */
+	static setItem(keyName = new String(), keyValue = new String()) {
+		let result = false;
+		switch (typeof keyValue) {
+			case "object":
+				keyValue = JSON.stringify(keyValue);
+				break;
+			default:
+				keyValue = String(keyValue);
+				break;
+		}
+		switch (keyName.startsWith("@")) {
+			case true: {
+				const { key, path } = keyName.match(Storage.#nameRegex)?.groups;
+				keyName = key;
+				let value = Storage.getItem(keyName, {});
+				if (typeof value !== "object") value = {};
+				Lodash.set(value, path, keyValue);
+				result = Storage.setItem(keyName, value);
+				break;
+			}
+			default:
+				switch ($app) {
+					case "Surge":
+					case "Loon":
+					case "Stash":
+					case "Egern":
+					case "Shadowrocket":
+						result = $persistentStore.write(keyValue, keyName);
+						break;
+					case "Quantumult X":
+						result = $prefs.setValueForKey(keyValue, keyName);
+						break;
+					case "Worker":
+						Storage.data = Storage.data ?? {};
+						Storage.data[keyName] = keyValue;
+						result = true;
+						break;
+					case "Node.js":
+						Storage.data = Storage.nodeBackend.load(Storage.dataFile);
+						Storage.data[keyName] = keyValue;
+						Storage.nodeBackend.write(Storage.dataFile, Storage.data);
+						result = true;
+						break;
+					default:
+						result = Storage.data?.[keyName] || null;
+						break;
+				}
+				break;
+		}
+		return result;
+	}
+
+	/**
+	 * 删除存储值。
+	 * Remove value from persistent storage.
+	 *
+	 * 平台说明:
+	 * Platform notes:
+	 * - Quantumult X: `$prefs.removeValueForKey`
+	 * - Surge: 通过 `$persistentStore.write(null, keyName)` 删除
+	 * - 其余平台当前返回 `false`
+	 *
+	 * @param {string} keyName 键名或路径键 / Key or path key.
+	 * @returns {boolean}
+	 */
+	static removeItem(keyName) {
+		let result = false;
+		switch (keyName.startsWith("@")) {
+			case true: {
+				const { key, path } = keyName.match(Storage.#nameRegex)?.groups;
+				keyName = key;
+				let value = Storage.getItem(keyName);
+				if (typeof value !== "object") value = {};
+				Lodash.unset(value, path);
+				result = Storage.setItem(keyName, value);
+				break;
+			}
+			default:
+				switch ($app) {
+					case "Surge":
+						result = $persistentStore.write(null, keyName);
+						break;
+					case "Loon":
+					case "Stash":
+					case "Egern":
+					case "Shadowrocket":
+						result = false;
+						break;
+					case "Quantumult X":
+						result = $prefs.removeValueForKey(keyName);
+						break;
+					case "Worker":
+						Storage.data = Storage.data ?? {};
+						delete Storage.data[keyName];
+						result = true;
+						break;
+					case "Node.js":
+						// result = false;
+						Storage.data = Storage.nodeBackend.load(Storage.dataFile);
+						delete Storage.data[keyName];
+						Storage.nodeBackend.write(Storage.dataFile, Storage.data);
+						result = true;
+						break;
+					default:
+						result = false;
+						break;
+				}
+				break;
+		}
+		return result;
+	}
+
+	/**
+	 * 清空存储。
+	 * Clear storage.
+	 *
+	 * @returns {boolean}
+	 */
+	static clear() {
+		let result = false;
+		switch ($app) {
+			case "Surge":
+			case "Loon":
+			case "Stash":
+			case "Egern":
+			case "Shadowrocket":
+				result = false;
+				break;
+			case "Quantumult X":
+				result = $prefs.removeAllValues();
+				break;
+			case "Worker":
+				Storage.data = {};
+				result = true;
+				break;
+			case "Node.js":
+				// result = false;
+				Storage.data = Storage.nodeBackend.load(Storage.dataFile);
+				Storage.data = {};
+				Storage.nodeBackend.write(Storage.dataFile, Storage.data);
+				result = true;
+				break;
+			default:
+				result = false;
+				break;
+		}
+		return result;
+	}
+}
+
+/**
+ * 提供空气质量标尺（AQI Scale）的本地响应能力。
+ * Provides local responses for air-quality scales.
+ */
+class AirQualityScale {
+    static Name = "AirQualityScale";
+    static Version = "1.0.0";
+    static Author = "Virgil Clyne & Wordless Echo";
+
+    #Config = {
+        Headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "max-age=31536000, public, s-maxage=31536000",
+        },
+        Language: {
+            en: "en-US",
+            "en-au": "en-US",
+            "en-ca": "en-US",
+            "en-gb": "en-US",
+            "en-ie": "en-US",
+            "en-in": "en-US",
+            "en-latn": "en-US",
+            "en-latn-au": "en-US",
+            "en-nz": "en-US",
+            "en-sg": "en-US",
+            "en-us": "en-US",
+            "en-za": "en-US",
+            zh: "zh-Hant-TW",
+            "zh-hans": "zh-Hans-CN",
+            "zh-cn": "zh-Hans-CN",
+            "zh-sg": "zh-Hans-CN",
+            "zh-hans-cn": "zh-Hans-CN",
+            "zh-hans-hk": "zh-Hans-CN",
+            "zh-hans-mo": "zh-Hans-CN",
+            "zh-hans-sg": "zh-Hans-CN",
+            "zh-hant": "zh-Hant-TW",
+            "zh-tw": "zh-Hant-TW",
+            "zh-hant-tw": "zh-Hant-TW",
+            "zh-hk": "zh-Hant-HK",
+            "zh-mo": "zh-Hant-HK",
+            "zh-hant-hk": "zh-Hant-HK",
+            "zh-hant-mo": "zh-Hant-HK",
+        },
+        AirQualityScale: {
+            "HK.AQHI": {
+                "zh-Hans-CN": {
+                    name: "HK.AQHI",
+                    displayName: "AQHI (HK)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "香港 (AQHI)",
+                    displayLabel: "空气质量",
+                    language: "zh-CN",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#58E156",
+                                categoryName: "低",
+                                recommendation: "可如常活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "一般可如常活动，但個別出现症状的人士应考虑减少户外体力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FFBE10",
+                                categoryName: "中",
+                                recommendation: "一般可如常活动，但個別出现症状的人士应考虑减少户外体力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "一般可如常活动，但個別出现症状的人士应考虑减少户外体力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心脏病或呼吸系统疾病患者、儿童及长者应减少户外体力消耗，以及减少在户外逗留的时间，特别在交通繁忙地方。心脏病或呼吸系统疾病患者在参与体育活动前应咨询医生意见，在体能活动期间应多作歇息。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#D11343",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心脏病或呼吸系统疾病患者、儿童及长者应尽量减少户外体力消耗，以及尽量减少在户外逗留的时间，特别在交通繁忙地方。从事重体力劳动的户外工作僱员的僱主应评估户外工作的风险，并採取适当的预防措施保障僱员的健康。一般市民应减少户外体力消耗，以及减少在户外逗留的时间，特别在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#A91537",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心脏病或呼吸系统疾病患者、儿童及长者应尽量减少户外体力消耗，以及尽量减少在户外逗留的时间，特别在交通繁忙地方。从事重体力劳动的户外工作僱员的僱主应评估户外工作的风险，并採取适当的预防措施保障僱员的健康。一般市民应减少户外体力消耗，以及减少在户外逗留的时间，特别在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心脏病或呼吸系统疾病患者、儿童及长者应尽量减少户外体力消耗，以及尽量减少在户外逗留的时间，特别在交通繁忙地方。从事重体力劳动的户外工作僱员的僱主应评估户外工作的风险，并採取适当的预防措施保障僱员的健康。一般市民应减少户外体力消耗，以及减少在户外逗留的时间，特别在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "严重",
+                                recommendation:
+                                    "心脏病或呼吸系统疾病患者、儿童及长者应避免户外体力消耗，以及避免在户外逗留，特别在交通繁忙地方。从事重体力劳动的户外工作雇员的雇主应评估户外工作的风险，并采取适当的预防措施保障雇员的健康。一般市民应尽量减少户外体力消耗，以及尽量减少在户外逗留的时间，特别在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 2.5,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FF9500",
+                                },
+                                {
+                                    location: 7,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#D11343",
+                                },
+                                {
+                                    location: 9.5,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "zh-Hant-HK": {
+                    name: "HK.AQHI",
+                    displayName: "AQHI (HK)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "香港 (AQHI)",
+                    displayLabel: "空氣質素",
+                    language: "zh-HK",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#58E156",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FFBE10",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心臟病或呼吸系統疾病患者、兒童及長者應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。心臟病或呼吸系統疾病患者在參與體育活動前應諮詢醫生意見，在體能活動期間應多作歇息。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#D11343",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#A91537",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "嚴重",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應避免戶外體力消耗，以及避免在戶外逗留，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 2.5,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FF9500",
+                                },
+                                {
+                                    location: 7,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#D11343",
+                                },
+                                {
+                                    location: 9.5,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "zh-Hant-TW": {
+                    name: "HK.AQHI",
+                    displayName: "AQHI (HK)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "香港 (AQHI)",
+                    displayLabel: "空氣品質",
+                    language: "zh-TW",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#58E156",
+                                categoryName: "低",
+                                recommendation: "可如常活動。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FFBE10",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "一般可如常活動，但個別出現症狀的人士應考慮減少戶外體力消耗。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心臟病或呼吸系統疾病患者、兒童及長者應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。心臟病或呼吸系統疾病患者在參與體育活動前應諮詢醫生意見，在體能活動期間應多作歇息。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#D11343",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#A91537",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "甚高",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應減少戶外體力消耗，以及減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "嚴重",
+                                recommendation:
+                                    "心臟病或呼吸系統疾病患者、兒童及長者應避免戶外體力消耗，以及避免在戶外逗留，特別在交通繁忙地方。從事重體力勞動的戶外工作僱員的僱主應評估戶外工作的風險，並採取適當的預防措施保障僱員的健康。一般市民應盡量減少戶外體力消耗，以及盡量減少在戶外逗留的時間，特別在交通繁忙地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 2.5,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FF9500",
+                                },
+                                {
+                                    location: 7,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#D11343",
+                                },
+                                {
+                                    location: 9.5,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "en-US": {
+                    name: "HK.AQHI",
+                    displayName: "AQHI (HK)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "Hong Kong (AQHI)",
+                    displayLabel: "Air Quality",
+                    language: "en",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#04DE71",
+                                categoryName: "Low",
+                                recommendation: "No response action is required.",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "Low",
+                                recommendation: "No response action is required.",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#58E156",
+                                categoryName: "Low",
+                                recommendation: "No response action is required.",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "Moderate",
+                                recommendation: "No response action is normally required. Individuals who are experiencing symptoms are advised to consider reducing outdoor physical exertion.",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FFBE10",
+                                categoryName: "Moderate",
+                                recommendation: "No response action is normally required. Individuals who are experiencing symptoms are advised to consider reducing outdoor physical exertion.",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FF9500",
+                                categoryName: "Moderate",
+                                recommendation: "No response action is normally required. Individuals who are experiencing symptoms are advised to consider reducing outdoor physical exertion.",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#FA114F",
+                                categoryName: "High",
+                                recommendation:
+                                    "People with existing heart or respiratory illnesses, Children and the elderly are advised to reduce outdoor physical exertion, and to reduce the time of their stay outdoors, especially in areas with heavy traffic. People with existing heart or respiratory illnesses should also seek advice from a medical doctor before participating in sport activities and take more breaks during physical activities.",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#D11343",
+                                categoryName: "Very High",
+                                recommendation:
+                                    "People with existing heart or respiratory illnesses, Children and the elderly are advised to reduce to the minimum outdoor physical exertion, and to reduce to the minimum the time of their stay outdoors, especially in areas with heavy traffic. Employers of outdoor workers performing heavy manual work are advised to assess the risk of outdoor work, and take appropriate preventive measures to protect the health of their employees. The general public is advised to reduce outdoor physical exertion, and to reduce the time of their stay outdoors, especially in areas with heavy traffic.",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#A91537",
+                                categoryName: "Very High",
+                                recommendation:
+                                    "People with existing heart or respiratory illnesses, Children and the elderly are advised to reduce to the minimum outdoor physical exertion, and to reduce to the minimum the time of their stay outdoors, especially in areas with heavy traffic. Employers of outdoor workers performing heavy manual work are advised to assess the risk of outdoor work, and take appropriate preventive measures to protect the health of their employees. The general public is advised to reduce outdoor physical exertion, and to reduce the time of their stay outdoors, especially in areas with heavy traffic.",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "Very High",
+                                recommendation:
+                                    "People with existing heart or respiratory illnesses, Children and the elderly are advised to reduce to the minimum outdoor physical exertion, and to reduce to the minimum the time of their stay outdoors, especially in areas with heavy traffic. Employers of outdoor workers performing heavy manual work are advised to assess the risk of outdoor work, and take appropriate preventive measures to protect the health of their employees. The general public is advised to reduce outdoor physical exertion, and to reduce the time of their stay outdoors, especially in areas with heavy traffic.",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "Serious",
+                                recommendation:
+                                    "People with existing heart or respiratory illnesses, Children and the elderly are advised to avoid outdoor physical exertion, and to avoid staying outdoors, especially in areas with heavy traffic. Employers of outdoor workers performing heavy manual work are advised to assess the risk of outdoor work, and take appropriate preventive measures to protect the health of their employees. The general public is advised to reduce to the minimum outdoor physical exertion, and to reduce to the minimum the time of their stay outdoors, especially in areas with heavy traffic.",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 2.5,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FF9500",
+                                },
+                                {
+                                    location: 7,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#D11343",
+                                },
+                                {
+                                    location: 9.5,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+            "CN.AQHI": {
+                "zh-Hans-CN": {
+                    name: "CN.AQHI",
+                    displayName: "AQHI (CN)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "中国 (AQHI)",
+                    displayLabel: "空气质量",
+                    language: "zh-CN",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#2094FA",
+                                categoryName: "极低",
+                                recommendation: "适宜进行户外活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#CCFF66",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#DC1346",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#BD143D",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#9F1634",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "极高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应避免户外活动，避免体力消耗。一般人群应尽量减少户外活动，特别是在交通繁忙的地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#2094FA",
+                                },
+                                {
+                                    location: 2,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 3.5,
+                                    color: "#CCFF66",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#BD143D",
+                                },
+                                {
+                                    location: 10,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "zh-Hant-HK": {
+                    name: "CN.AQHI",
+                    displayName: "AQHI (CN)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "中国 (AQHI)",
+                    displayLabel: "空气质量",
+                    language: "zh-HK",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#2094FA",
+                                categoryName: "极低",
+                                recommendation: "适宜进行户外活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#CCFF66",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#DC1346",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#BD143D",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#9F1634",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "极高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应避免户外活动，避免体力消耗。一般人群应尽量减少户外活动，特别是在交通繁忙的地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#2094FA",
+                                },
+                                {
+                                    location: 2,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 3.5,
+                                    color: "#CCFF66",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#BD143D",
+                                },
+                                {
+                                    location: 10,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "zh-Hant-TW": {
+                    name: "CN.AQHI",
+                    displayName: "AQHI (CN)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "中国 (AQHI)",
+                    displayLabel: "空气质量",
+                    language: "zh-TW",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#2094FA",
+                                categoryName: "极低",
+                                recommendation: "适宜进行户外活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#CCFF66",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#DC1346",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#BD143D",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#9F1634",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "极高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应避免户外活动，避免体力消耗。一般人群应尽量减少户外活动，特别是在交通繁忙的地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#2094FA",
+                                },
+                                {
+                                    location: 2,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 3.5,
+                                    color: "#CCFF66",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#BD143D",
+                                },
+                                {
+                                    location: 10,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+                "en-US": {
+                    name: "CN.AQHI",
+                    displayName: "AQHI (CN)",
+                    shortDisplayName: "AQHI",
+                    longDisplayName: "中国 (AQHI)",
+                    displayLabel: "空气质量",
+                    language: "en",
+                    version: 1,
+                    aqi: {
+                        numerical: true,
+                        ascending: true,
+                        range: [1, 11],
+                        categories: [
+                            {
+                                categoryNumber: 1,
+                                range: [1, 1],
+                                color: "#2094FA",
+                                categoryName: "极低",
+                                recommendation: "适宜进行户外活动。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 2,
+                                range: [2, 2],
+                                color: "#04DE71",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 3,
+                                range: [3, 3],
+                                color: "#CCFF66",
+                                categoryName: "低",
+                                recommendation: "正常进行户外活动。心肺疾病患者可遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.low",
+                            },
+                            {
+                                categoryNumber: 4,
+                                range: [4, 4],
+                                color: "#FFE620",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 5,
+                                range: [5, 5],
+                                color: "#FF9500",
+                                categoryName: "中",
+                                recommendation: "心肺疾病患者应减少长时间、高强度的户外活动，并遵照医嘱进行身体锻炼。",
+                                glyph: "aqi.medium",
+                            },
+                            {
+                                categoryNumber: 6,
+                                range: [6, 6],
+                                color: "#FA114F",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 7,
+                                range: [7, 7],
+                                color: "#DC1346",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 8,
+                                range: [8, 8],
+                                color: "#BD143D",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 9,
+                                range: [9, 9],
+                                color: "#9F1634",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 10,
+                                range: [10, 10],
+                                color: "#80172B",
+                                categoryName: "高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应尽量减少户外活动，特别是在交通繁忙的地方。一般人群应减少长时间、高强度的户外活动。",
+                                glyph: "aqi.high",
+                            },
+                            {
+                                categoryNumber: 11,
+                                range: [11, 11],
+                                color: "#80172B",
+                                categoryName: "极高",
+                                recommendation: "心肺疾病患者、老人、儿童及孕妇应避免户外活动，避免体力消耗。一般人群应尽量减少户外活动，特别是在交通繁忙的地方。",
+                                glyph: "aqi.high",
+                            },
+                        ],
+                        gradient: {
+                            stops: [
+                                {
+                                    location: 1,
+                                    color: "#2094FA",
+                                },
+                                {
+                                    location: 2,
+                                    color: "#04DE71",
+                                },
+                                {
+                                    location: 3.5,
+                                    color: "#CCFF66",
+                                },
+                                {
+                                    location: 4,
+                                    color: "#FFE620",
+                                },
+                                {
+                                    location: 6,
+                                    color: "#FA114F",
+                                },
+                                {
+                                    location: 8,
+                                    color: "#BD143D",
+                                },
+                                {
+                                    location: 10,
+                                    color: "#80172B",
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+        },
+    };
+
+    /**
+     * 从完整配置中读取并序列化指定标尺。
+     * Reads and serializes the requested scale from the complete configuration.
+     * @param {string} language
+     * @param {string} scaleName
+     * @returns {{ status: number, headers: Record<string, string>, body: string }|undefined}
+     */
+    Build(language, scaleName) {
+        const configLanguage = this.#GetConfigLanguage(language);
+        const scale = this.#Config.AirQualityScale[scaleName]?.[configLanguage];
+        if (!scale) return undefined;
+        return {
+            status: 200,
+            headers: { ...this.#Config.Headers },
+            body: JSON.stringify(scale),
+        };
+    }
+
+    /**
+     * 按显式 BCP 47 映射表查找数据库语言键。
+     * Resolves the database language key through the explicit BCP 47 map.
+     * @param {string} language
+     * @returns {string|undefined}
+     */
+    #GetConfigLanguage(language) {
+        return this.#Config.Language[language?.toLowerCase()];
+    }
+}
+
+class Weather {
+    static Name = "Weather";
+    static Version = "0.3.0";
+    static Author = "Virgil Clyne & 001";
+
+    /**
+     * 将 DSWRF（W/m²）估算为 UV Index（整数）
+     * @param {number} dswrf - 向下短波辐射通量
+     * @param {number} k - UV 占比系数，可选，默认 0.04
+     * @returns {number} UV Index（四舍五入为整数）
+     */
+    static ConvertDSWRF(dswrf, k = 0.04) {
+        Console.info("☑️ ConvertDSWRF");
+        const uvIndex = Math.round((Math.max(dswrf, 0) * k) / 0.025); // 估算 UV Index
+        //Console.debug(`UV Index: ${uvIndex}`);
+        Console.info("✅ ConvertDSWRF");
+        // 限制结果在 0~11，并四舍五入为整数
+        return Math.min(uvIndex, 11);
+    }
+
+    /**
+     * 将新的气象数组合并到原始气象数组
+     * @param {array} to - 原始气象数组
+     * @param {array} from - 新的气象数组
+     * @returns {array} 原始气象数组
+     */
+    static mergeForecast(to = [], from = []) {
+        let i = 0,
+            j = 0;
+        while (i < to.length) {
+            const forecastStart = to[i].forecastStart;
+            const newForecastStart = j < from.length ? from[j].forecastStart : Number.POSITIVE_INFINITY;
+
+            if (forecastStart === newForecastStart) {
+                //Console.debug(`${i}: ${newForecastStart} -> ${forecastStart}`);
+                // 原地把 from[j] 的字段合入 to[i]（A 冲突字段保留 or 被覆盖，看你需要）
+                if (Object.hasOwn(from[j], "daytimeForecast")) from[j].daytimeForecast = { ...to[i].daytimeForecast, ...from[j].daytimeForecast };
+                if (Object.hasOwn(from[j], "overnightForecast")) from[j].overnightForecast = { ...to[i].overnightForecast, ...from[j].overnightForecast };
+                if (Object.hasOwn(from[j], "restOfDayForecast")) from[j].restOfDayForecast = { ...to[i].restOfDayForecast, ...from[j].restOfDayForecast };
+                Object.assign(to[i], from[j]); // 或者：Object.assign(to[i], {/* 自定义映射 */})
+                i++;
+                j++;
+            } else if (newForecastStart < forecastStart) {
+                //Console.debug(`${j}: ${newForecastStart} -> X`);
+                j++; // 让 from 追上 to
+            } else {
+                //Console.debug(`${i}: X -> ${forecastStart}`);
+                i++; // to 无匹配，保留 to[i]
+            }
+        }
+        return to; // 可选：返回同一个引用
+    }
+
+    static ConvertWeatherCode(skycon) {
+        switch (skycon) {
+            // 晴天
+            case "晴":
+            case "CLEAR_DAY":
+            case "CLEAR_NIGHT":
+                return "CLEAR";
+
+            // 多云相关
+            case "多云":
+            case "PARTLY_CLOUDY_DAY":
+            case "PARTLY_CLOUDY_NIGHT":
+                return "PARTLY_CLOUDY";
+            case "少云":
+                return "MOSTLY_CLEAR";
+            case "晴间多云":
+                return "PARTLY_CLOUDY";
+            case "阴":
+            case "CLOUDY":
+                return "CLOUDY";
+
+            // 风相关
+            case "WIND":
+                return "WINDY";
+
+            // 雾霾相关
+            case "薄雾":
+            case "雾":
+            case "浓雾":
+            case "强浓雾":
+            case "大雾":
+            case "特强浓雾":
+            case "FOG":
+                return "FOGGY";
+            case "霾":
+            case "中度霾":
+            case "重度霾":
+            case "严重霾":
+            case "LIGHT_HAZE":
+            case "MODERATE_HAZE":
+            case "HEAVY_HAZE":
+                return "HAZE";
+
+            // 沙尘相关(Apple 缺失 DUST/SAND 定义，暂用 HAZE 代替)
+            case "扬沙":
+            case "浮尘":
+            case "沙尘暴":
+            case "强沙尘暴":
+            case "DUST":
+            case "SAND":
+                return "HAZE";
+
+            // 降雨相关
+            case "小雨":
+            case "毛毛雨/细雨":
+            case "LIGHT_RAIN":
+                return "DRIZZLE";
+            case "雨":
+            case "阵雨":
+            case "中雨":
+            case "小到中雨":
+            case "MODERATE_RAIN":
+                return "RAIN";
+            case "大雨":
+            case "中到大雨":
+                return "HEAVY_RAIN";
+            case "暴雨":
+            case "大暴雨":
+            case "强降雨":
+            case "特大暴雨":
+            case "大到暴雨":
+            case "暴雨到大暴雨":
+            case "大暴雨到特大暴雨":
+            case "极端降雨":
+            case "HEAVY_RAIN":
+                return "HEAVY_RAIN";
+            case "雷阵雨":
+            case "强雷阵雨":
+            case "STORM_RAIN":
+            case "雷阵雨伴有冰雹":
+                return "THUNDERSTORMS";
+
+            // 降雪相关
+            case "小雪":
+            case "LIGHT_SNOW":
+                return "FLURRIES";
+            case "雪":
+            case "阵雪":
+            case "中雪":
+            case "小到中雪":
+            case "MODERATE_SNOW":
+                return "SNOW";
+            case "大雪":
+            case "中到大雪":
+            case "HEAVY_SNOW":
+                return "HEAVY_SNOW";
+            case "暴雪":
+            case "大到暴雪":
+            case "STORM_SNOW":
+                return "BLIZZARD";
+
+            // 雨雪混合
+            case "雨夹雪":
+            case "雨雪天气":
+            case "阵雨夹雪":
+            case "冻雨":
+                return "FREEZING_DRIZZLE";
+
+            // 温度相关
+            case "热":
+            case "冷":
+
+            // 未知
+            case "未知":
+            default:
+                Console.debug(`skycon: ${skycon}`);
+                return null;
+        }
+    }
+
+    static ConvertWeatherCodeField(skycon) {
+        const conditionCode = Weather.ConvertWeatherCode(skycon);
+        // 未知 provider 值必须省略；写入 null 会覆盖 Apple 原值并被 FlatBuffer 编成 CLEAR。
+        return conditionCode == null ? {} : { conditionCode };
+    }
+
+    static ConvertMoonPhase(moonPhase) {
+        switch (moonPhase) {
+            case "新月":
+                return "NEW";
+            case "蛾眉月":
+                return "WAXING_CRESCENT";
+            case "上弦月":
+                return "FIRST_QUARTER";
+            case "盈凸月":
+                return "WAXING_GIBBOUS";
+            case "满月":
+                return "FULL";
+            case "亏凸月":
+                return "WANING_GIBBOUS";
+            case "下弦月":
+                return "THIRD_QUARTER";
+            case "残月":
+                return "WANING_CRESCENT";
+            default:
+                Console.debug(`moonPhase: ${moonPhase}`);
+                return null;
+        }
+    }
+}
+
+// Code by Claude
+class SimplePrecisionMath {
+    /**
+     * 获取数字的小数位数
+     */
+    static getDecimalLength(num) {
+        const str = String(num);
+        const decimalIndex = str.indexOf(".");
+        return decimalIndex === -1 ? 0 : str.length - decimalIndex - 1;
+    }
+
+    /**
+     * 乘法
+     */
+    static multiply(a, b, decimals = 15) {
+        const numA = Number(a.toFixed(decimals));
+        const numB = Number(b.toFixed(decimals));
+
+        const lenA = SimplePrecisionMath.getDecimalLength(numA);
+        const lenB = SimplePrecisionMath.getDecimalLength(numB);
+
+        const factorA = 10 ** lenA;
+        const factorB = 10 ** lenB;
+
+        const intA = Math.round(numA * factorA);
+        const intB = Math.round(numB * factorB);
+
+        const result = (intA * intB) / (factorA * factorB);
+
+        return Number(result.toFixed(decimals));
+    }
+
+    /**
+     * 除法
+     */
+    static divide(a, b, decimals = 15) {
+        if (b === 0) {
+            throw new Error("除数不能为0");
+        }
+
+        const numA = Number(a.toFixed(decimals));
+        const numB = Number(b.toFixed(decimals));
+
+        const lenA = SimplePrecisionMath.getDecimalLength(numA);
+        const lenB = SimplePrecisionMath.getDecimalLength(numB);
+
+        const factorA = 10 ** lenA;
+        const factorB = 10 ** lenB;
+
+        const intA = Math.round(numA * factorA);
+        const intB = Math.round(numB * factorB);
+
+        const result = (intA / intB) * (factorB / factorA);
+
+        return Number(result.toFixed(decimals));
+    }
+
+    /**
+     * 加法
+     */
+    static add(a, b, decimals = 15) {
+        const numA = Number(a.toFixed(decimals));
+        const numB = Number(b.toFixed(decimals));
+
+        const lenA = SimplePrecisionMath.getDecimalLength(numA);
+        const lenB = SimplePrecisionMath.getDecimalLength(numB);
+        const maxLen = Math.max(lenA, lenB);
+        const factor = 10 ** maxLen;
+
+        const intA = Math.round(numA * factor);
+        const intB = Math.round(numB * factor);
+
+        return Number(((intA + intB) / factor).toFixed(decimals));
+    }
+
+    /**
+     * 减法
+     */
+    static subtract(a, b, decimals = 15) {
+        const numA = Number(a.toFixed(decimals));
+        const numB = Number(b.toFixed(decimals));
+
+        const lenA = SimplePrecisionMath.getDecimalLength(numA);
+        const lenB = SimplePrecisionMath.getDecimalLength(numB);
+        const maxLen = Math.max(lenA, lenB);
+        const factor = 10 ** maxLen;
+
+        const intA = Math.round(numA * factor);
+        const intB = Math.round(numB * factor);
+
+        return Number(((intA - intB) / factor).toFixed(decimals));
+    }
+}
+
+class AirQuality {
+    static Name = "AirQuality";
+    static Version = "3.1.0";
+    static Author = "Virgil Clyne & Wordless Echo";
+
+    // Code by Claude
+    static #CeilByPrecision(a, b) {
+        // 获取 b 的小数位数
+        const decimals = (b.toString().split(".")[1] || "").length;
+
+        // 根据小数位数计算倍数
+        const multiplier = 10 ** decimals;
+
+        // 向上取整；参考 WeatherKit PR #107 以 EPSILON 容差修正二进制浮点导致的边界误判
+        const scaled = a * multiplier;
+        return Math.ceil(scaled - Number.EPSILON * Math.max(1, Math.abs(scaled)) * 8) / multiplier;
+    }
+
+    /**
+     * 根据 AQI 数值定位其所属的分类等级（categoryIndex）。
+     *
+     * 作用：
+     * - 在给定的 categories.ranges 中查找 index 落入的区间；
+     * - 返回该区间对应的 categoryIndex，供主污染物判断与展示层分级使用。
+     *
+     * @param {number} index
+     * 待判定的 AQI 指数值。
+     *
+     * @param {{
+     *   ranges?: Array<{ categoryIndex: number, indexes: [number, number] }>
+     * }} categories
+     * 分类配置对象。
+     * - ranges[*].indexes 为 [min, max] 区间；
+     * - 使用 #CeilByPrecision 处理小数精度后再进行区间比较。
+     *
+     * @returns {number}
+     * 命中的 categoryIndex；若 categories 无效或未命中区间，返回 -1。
+     */
+
+    static CategoryIndex(index, categories) {
+        Console.info("☑️ CategoryIndex", `index: ${index}`);
+
+        const failedCategoryIndex = -1;
+
+        if (!categories?.ranges || !Array.isArray(categories.ranges) || categories.ranges.length === 0) {
+            Console.debug(`categories: ${JSON.stringify(categories)}`);
+            Console.error("GetPrimaryPollutant", "categories无效");
+            return failedCategoryIndex;
+        }
+
+        const range = categories.ranges.find(({ indexes }) => {
+            const [min, max] = indexes;
+            return AirQuality.#CeilByPrecision(index, min) >= min && AirQuality.#CeilByPrecision(index, max) <= max;
+        });
+        if (!range) {
+            Console.error("CategoryIndex", `找不到index: ${index}对应的category`);
+            return failedCategoryIndex;
+        }
+
+        Console.info("✅ CategoryIndex", `categoryIndex: ${range.categoryIndex}`);
+        return range.categoryIndex;
+    }
+
+    static CompareCategoryIndexes(todayCategoryIndex, yesterdayCategoryIndex) {
+        Console.info("☑️ CompareCategoryIndexes", `todayCategoryIndex: ${todayCategoryIndex}`, `yesterdayCategoryIndex: ${yesterdayCategoryIndex}`);
+
+        const { UNKNOWN, SAME, WORSE, BETTER } = AirQuality.Config.CompareCategoryIndexes;
+        const today = Number(todayCategoryIndex);
+        const yesterday = Number(yesterdayCategoryIndex);
+
+        // -1、0 和 null 都表示“无可用等级”，不能参与好转/恶化比较。
+        if (![today, yesterday].every(categoryIndex => Number.isFinite(categoryIndex) && categoryIndex > 0)) {
+            Console.error("CompareCategoryIndexes", "categoryIndex无效");
+            return UNKNOWN;
+        } else {
+            const diff = today - yesterday;
+            if (diff === 0) {
+                Console.info("✅ CompareCategoryIndexes");
+                return SAME;
+            } else if (diff > 0) {
+                Console.info("✅ CompareCategoryIndexes");
+                return WORSE;
+            } else {
+                Console.info("✅ CompareCategoryIndexes");
+                return BETTER;
+            }
+        }
+    }
+
+    static ConvertUnits(pollutants, stpConversionFactors, pollutantScales) {
+        Console.info("☑️ ConvertUnits");
+
+        const friendlyUnits = AirQuality.Config.Units.Friendly;
+
+        const convertedPollutants = pollutants.map(pollutant => {
+            const pollutantScale = pollutantScales[pollutant.pollutantType];
+
+            if (!pollutantScale) {
+                Console.info("ConvertUnits", `No scale for ${pollutant.pollutantType}, skip`);
+                return pollutant;
+            }
+
+            Console.info("ConvertUnits", `Converting ${pollutant.pollutantType}`);
+            const amount = AirQuality.ConvertUnit(pollutant.amount, pollutant.units, pollutantScale.units, stpConversionFactors?.[pollutant.pollutantType] || -1, pollutantScale?.stpConversionFactor || -1);
+            if (amount < 0) {
+                Console.error(
+                    "ConvertUnits",
+                    `无法转换${pollutant.pollutantType}的单位`,
+                    `${pollutant.amount} ${friendlyUnits[pollutant.units] ?? pollutant.units} (STP conversion factor: ${stpConversionFactors?.[pollutant.pollutantType] || -1}) -> ${amount} ${friendlyUnits[pollutantScale.units] ?? pollutantScale.units} (STP conversion factor: ${pollutantScale?.stpConversionFactor || -1})`,
+                );
+                return pollutant;
+            }
+
+            Console.info("ConvertUnits", `Converted ${pollutant.pollutantType}: ${amount} ${friendlyUnits[pollutantScale.units] ?? pollutantScale.units}`);
+            return { ...pollutant, amount, units: pollutantScale.units };
+        });
+        Console.info("✅ ConvertUnits");
+        return convertedPollutants;
+    }
+
+    /**
+     * 修复污染物单位。
+     *
+     * 说明：
+     * - 这是空气质量数据修复的统一入口（当前聚焦污染物单位修复）；
+     * - 当前仅处理和风天气（QWeather）CO 单位场景：其 CO 原始单位为 mg/m3，
+     *   需转换为 WeatherKit 使用的 µg/m3；
+     * - 参考 WeatherKit PR #107（Horatio，Apache-2.0）的幂等修复：仅在明确标注
+     *   mg/m3 时换算；Apple 原始 QWeather 产品的 CO 数值为 mg/m3 但可能误标为
+     *   µg/m3，仅当入口显式声明 appleProduct 时按误标处理，避免对已归一化数据
+     *   重复换算，也不按浓度大小猜测单位；
+     * - 后续同类修复请统一收敛到本方法内，必要时可将本方法升级为 FixAirQuality。
+     *
+     * @param {any} airQuality - 空气质量数据对象
+     * @param {{appleProduct?: boolean}} options - 仅 Apple 原始产品入口设为 true
+     * @returns {any} 单位修复后的空气质量数据对象
+     */
+    static FixPollutantsUnits(airQuality, options = {}) {
+        Console.info("☑️ FixPollutantsUnits");
+        switch (airQuality?.metadata?.providerName) {
+            case "和风天气":
+            case "QWeather": {
+                const { mgm3, ugm3 } = AirQuality.Config.Units.WeatherKit;
+                airQuality = {
+                    ...airQuality,
+                    pollutants: airQuality?.pollutants?.map(pollutant => (pollutant?.pollutantType === "CO" && (pollutant.units === mgm3 || (options.appleProduct === true && pollutant.units === ugm3)) ? { ...pollutant, amount: AirQuality.ConvertUnit(pollutant.amount, mgm3, ugm3), units: ugm3 } : pollutant)),
+                };
+                break;
+            }
+            default: {
+                Console.info(`Provider ${airQuality?.metadata?.providerName} is no need to fix.`);
+                break;
+            }
+        }
+        Console.info("✅ FixPollutantsUnits");
+        return airQuality;
+    }
+
+    static #GetStpConversionFactors(airQuality) {
+        Console.info("☑️ GetStpConversionFactors");
+
+        switch (airQuality?.metadata?.providerName) {
+            case "和风天气":
+            case "BreezoMeter":
+            default: {
+                Console.info("✅ GetStpConversionFactors", `STP conversion factors for ${airQuality?.metadata?.providerName}: US`);
+                return AirQuality.Config.STP_ConversionFactors.US;
+            }
+        }
+    }
+
+    static Pollutants2AQI(airQuality, Settings, options = {}) {
+        Console.info("☑️ Pollutants2AQI");
+        const algorithm = options?.algorithm ?? Settings?.AirQuality?.Calculate?.Algorithm;
+        const forcePrimaryPollutant = options?.forcePrimaryPollutant ?? Settings?.AirQuality?.Current?.Index?.ForceCNPrimaryPollutants;
+        const allowOverRange = options?.allowOverRange ?? Settings?.AirQuality?.Calculate?.AllowOverRange;
+
+        const stpConversionFactors = AirQuality.#GetStpConversionFactors(airQuality);
+        const scale = AirQuality.Config.Scales[algorithm] ?? AirQuality.Config.Scales.UBA;
+
+        switch (algorithm) {
+            case "None": {
+                return airQuality;
+            }
+            case "EU_EAQI": {
+                // PollutantsToEAQI
+                Console.info("☑️ PollutantsToEAQI");
+                airQuality = AirQuality.#PollutantsToAirQuality(airQuality.pollutants, scale, { stpConversionFactors, allowOverRange: false });
+                Console.info("✅ PollutantsToEAQI");
+                break;
+            }
+            case "WAQI_InstantCast_US": {
+                // PollutantsToInstantCastUS
+                Console.info("☑️ PollutantsToInstantCastUS", `allowOverRange: ${allowOverRange}`);
+                airQuality = AirQuality.#PollutantsToAirQuality(airQuality.pollutants, scale, { stpConversionFactors, allowOverRange });
+                Console.info("✅ PollutantsToInstantCastUS");
+                break;
+            }
+            case "WAQI_InstantCast_CN":
+            case "WAQI_InstantCast_CN_25_DRAFT": {
+                // PollutantsToInstantCastCN12 / PollutantsToInstantCastCN25 / #PollutantsToInstantCastCN
+                Console.info("☑️ PollutantsToInstantCastCN", `allowOverRange: ${allowOverRange}`, `forcePrimaryPollutant: ${forcePrimaryPollutant}`);
+                airQuality = AirQuality.#PollutantsToAirQuality(airQuality.pollutants, scale, { stpConversionFactors, allowOverRange });
+
+                const isNotAvailable = !forcePrimaryPollutant && airQuality.index <= 50;
+                if (isNotAvailable) {
+                    Console.info("PollutantsToInstantCastCN", `Max index of pollutants ${airQuality.primaryPollutant} = ${airQuality.index} is <= 50, primaryPollutant will be set to NOT_AVAILABLE.`);
+                }
+
+                airQuality = {
+                    ...airQuality,
+                    primaryPollutant: isNotAvailable ? "NOT_AVAILABLE" : airQuality.primaryPollutant,
+                };
+                Console.info("✅ PollutantsToInstantCastCN");
+                break;
+            }
+            case "CN_DEATH_AQHI":
+            case "CA_AQHI":
+            case "HK_AQHI":
+            case "CN_DEATH_HK_AQHI": {
+                // PollutantsToAQHI
+                Console.info("☑️ PollutantsToAQHI");
+                airQuality = AirQuality.#PollutantsToAQHI(airQuality.pollutants, scale, { stpConversionFactors });
+                airQuality = {
+                    ...airQuality,
+                    index: airQuality.categoryIndex,
+                };
+                Console.info("✅ PollutantsToAQHI");
+                break;
+            }
+            case "AQHI_Multi_CN":
+            case "AQHI_Multi_CN_HK": {
+                Console.info("☑️ PollutantsToAQHIMulti");
+                airQuality = AirQuality.#PollutantsToAQHIMulti(airQuality.pollutants, scale, { stpConversionFactors });
+                airQuality = {
+                    ...airQuality,
+                    index: airQuality.categoryIndex,
+                };
+                Console.info("✅ PollutantsToAQHIMulti");
+                break;
+            }
+            case "UBA":
+            default: {
+                // PollutantsToUBA
+                Console.info("☑️ PollutantsToUBA");
+                airQuality = AirQuality.#PollutantsToAirQuality(airQuality.pollutants, scale, { stpConversionFactors, allowOverRange: true });
+                airQuality = {
+                    ...airQuality,
+                    index: airQuality.categoryIndex,
+                };
+                Console.info("✅ PollutantsToUBA");
+                break;
+            }
+        }
+
+        Console.info("✅ Pollutants2AQI");
+        return airQuality;
+    }
+
+    static ConvertPollutants(airQuality, injectedPollutants, needInjectIndex, injectedIndex, Settings) {
+        const unitsMode = Settings?.AirQuality?.Current?.Pollutants?.Units?.Mode || "Scale";
+        Console.info("☑️ ConvertPollutants", `mode: ${unitsMode}`);
+
+        const getScale = scaleName => {
+            const scales = AirQuality.Config.Scales;
+            switch (scaleName) {
+                case scales.CN_AQHI.weatherKitScale.name:
+                    return scales.CN_AQHI;
+                case scales.HK_AQHI.weatherKitScale.name:
+                    return scales.HK_AQHI;
+                case scales.CA_AQHI.weatherKitScale.name:
+                    return scales.CA_AQHI;
+                case scales.HJ6332012.weatherKitScale.name:
+                    return scales.WAQI_InstantCast_CN;
+                case scales.EPA_NowCast.weatherKitScale.name:
+                    return scales.WAQI_InstantCast_US;
+                case scales.EU_EAQI.weatherKitScale.name:
+                    return scales.EU_EAQI;
+                default:
+                    return scales[scaleName];
+            }
+        };
+
+        const getPollutantScales = pollutantScales => {
+            const { ugm3, ppb } = AirQuality.Config.Units.WeatherKit;
+            const { US, EU } = AirQuality.Config.STP_ConversionFactors;
+            const ugm3Scale = {
+                OZONE: { units: ugm3, stpConversionFactor: -1 },
+                NO2: { units: ugm3, stpConversionFactor: -1 },
+                SO2: { units: ugm3, stpConversionFactor: -1 },
+                CO: { units: ugm3, stpConversionFactor: -1 },
+                C6H6: { units: ugm3, stpConversionFactor: -1 },
+                NH3: { units: ugm3, stpConversionFactor: -1 },
+                NO: { units: ugm3, stpConversionFactor: -1 },
+            };
+            const usPpbScale = {
+                OZONE: { units: ppb, stpConversionFactor: US.OZONE },
+                NO2: { units: ppb, stpConversionFactor: US.NO2 },
+                SO2: { units: ppb, stpConversionFactor: US.SO2 },
+                CO: { units: ppb, stpConversionFactor: US.CO },
+                C6H6: { units: ppb, stpConversionFactor: US.C6H6 },
+                NH3: { units: ppb, stpConversionFactor: US.NH3 },
+                NO: { units: ppb, stpConversionFactor: US.NO },
+            };
+            const euPpbScale = {
+                OZONE: { units: ppb, stpConversionFactor: EU.OZONE },
+                NO2: { units: ppb, stpConversionFactor: EU.NO2 },
+                SO2: { units: ppb, stpConversionFactor: EU.SO2 },
+                CO: { units: ppb, stpConversionFactor: EU.CO },
+                C6H6: { units: ppb, stpConversionFactor: EU.C6H6 },
+                NH3: { units: ppb, stpConversionFactor: EU.NH3 },
+                NO: { units: ppb, stpConversionFactor: EU.NO },
+            };
+
+            switch (unitsMode) {
+                case "ugm3":
+                    return { ...ugm3Scale, ...pollutantScales };
+                case "EU_ppb":
+                    return { ...euPpbScale, ...pollutantScales };
+                case "US_ppb":
+                    return { ...usPpbScale, ...pollutantScales };
+                case "Force_ugm3":
+                    return ugm3Scale;
+                case "Force_EU_ppb":
+                    return euPpbScale;
+                case "Force_US_ppb":
+                    return usPpbScale;
+                case "Scale":
+                default:
+                    return pollutantScales;
+            }
+        };
+
+        const replaceUnits = Settings?.AirQuality?.Current?.Pollutants?.Units?.Replace ?? [];
+        const isIndexInjected = needInjectIndex && injectedIndex?.metadata && !injectedIndex.metadata.temporarilyUnavailable;
+        const currentScale = isIndexInjected ? injectedIndex?.scale : airQuality?.scale;
+        const scaleName = replaceUnits.find(name => AirQuality.ScaleMatches(currentScale, name));
+
+        const pollutants = injectedPollutants?.metadata && !injectedPollutants.metadata.temporarilyUnavailable ? injectedPollutants.pollutants : airQuality?.pollutants;
+        Console.info("✅ ConvertPollutants");
+        if (replaceUnits.includes(scaleName)) {
+            if (isIndexInjected && Settings?.AirQuality?.Current?.Index?.Provider === "Calculate" && unitsMode === "Scale") {
+                Console.info("ConvertPollutants", `Use pollutants from iRingo`);
+                return injectedIndex.pollutants;
+            } else {
+                const scale = getScale(scaleName);
+                if (!scale) {
+                    Console.error("ConvertPollutants", `Unsupported scale name: ${scaleName}`);
+                    return pollutants;
+                }
+
+                return AirQuality.ConvertUnits(pollutants, AirQuality.#GetStpConversionFactors(airQuality), getPollutantScales(scale.pollutants));
+            }
+        } else {
+            return pollutants;
+        }
+    }
+
+    // Apple 的无版本 AQ scale 路径会解析到当前资源；仅自定义 scale 明确配置版本时才拼接。
+    static ToWeatherKitScale = ({ name, version }) => (version ? `${name}.${version}` : name);
+
+    static ScaleMatches = (scale, name) => scale === name || (scale?.startsWith(`${name}.`) && /^\d+$/.test(scale.slice(name.length + 1)));
+
+    /**
+     * 根据“昨日对比指数来源”和当前空气质量 scale，选择用于昨日对比计算的算法。
+     * - Calculate: 直接采用用户配置算法
+     * - QWeather / ColorfulCloudsCN: 固定使用国标 InstantCast
+     * - WeatherKit: 根据 scale 自动映射到内置算法
+     * @param {any} airQuality - 当前空气质量对象（用于读取 scale）
+     * @param {any} Settings - 全局设置对象
+     * @returns {string} 选中的算法名；无法匹配时返回空字符串
+     */
+    static chooseAlogrithm(airQuality, Settings) {
+        Console.info("☑️ chooseAlogrithm", `currentIndexProvider: ${Settings?.AirQuality?.Comparison?.Yesterday?.IndexProvider}`);
+
+        switch (Settings?.AirQuality?.Comparison?.Yesterday?.IndexProvider) {
+            case "Calculate": {
+                Console.info("✅ chooseAlogrithm", `algorithm: ${Settings?.AirQuality?.Calculate?.Algorithm}`);
+                return Settings?.AirQuality?.Calculate?.Algorithm;
+            }
+            case "QWeather":
+            case "ColorfulCloudsCN": {
+                Console.info("✅ chooseAlogrithm", `algorithm: WAQI_InstantCast_CN`);
+                return "WAQI_InstantCast_CN";
+            }
+            case "WeatherKit": {
+                const scales = AirQuality.Config.Scales;
+
+                if (AirQuality.ScaleMatches(airQuality?.scale, scales.HJ6332012.weatherKitScale.name)) {
+                    Console.info("✅ chooseAlogrithm", `algorithm: WAQI_InstantCast_CN`);
+                    return "WAQI_InstantCast_CN";
+                } else if (AirQuality.ScaleMatches(airQuality?.scale, scales.EPA_NowCast.weatherKitScale.name)) {
+                    Console.info("✅ chooseAlogrithm", `algorithm: WAQI_InstantCast_US`);
+                    return "WAQI_InstantCast_US";
+                } else {
+                    const supportedScales = [scales.EU_EAQI.weatherKitScale.name, scales.UBA.weatherKitScale.name];
+                    const currentScale = supportedScales.find(name => AirQuality.ScaleMatches(airQuality?.scale, name));
+                    if (currentScale) {
+                        Console.info("✅ chooseAlogrithm", `algorithm: ${currentScale}`);
+                        return currentScale;
+                    }
+
+                    Console.error("chooseAlogrithm", "没有找到合适的内置算法");
+                    return "";
+                }
+            }
+            default: {
+                Console.error("chooseAlogrithm", "未知的currentIndexProvider");
+                return "";
+            }
+        }
+    }
+
+    /**
+     * 为 providerName 附加空气质量标准描述。
+     * @param {any} airQuality - 空气质量对象
+     * @param {any} Settings - 全局设置对象
+     * @returns {string} 带标准描述的 providerName
+     */
+    static appendScaleToProviderName(airQuality, Settings) {
+        const providerName = airQuality?.metadata?.providerName;
+        switch (providerName) {
+            case "和风天气":
+                return `${providerName}（国标，12年2月版）`;
+            case "彩云天气": {
+                const useUsa = airQuality?.scale === AirQuality.ToWeatherKitScale(AirQuality.Config.Scales.EPA_NowCast.weatherKitScale);
+                return `${providerName}（${useUsa ? "美标，18年9月版" : "国标，12年2月版"}）`;
+            }
+            case "iRingo":
+                switch (Settings?.AirQuality?.Calculate?.Algorithm) {
+                    case "EU_EAQI":
+                        return `${providerName} (ETC HE Report 2024/17)`;
+                    case "WAQI_InstantCast_US":
+                        return `${providerName} (WAQI InstantCast with EPA-454/B-24-002)`;
+                    case "WAQI_InstantCast_CN":
+                        return `${providerName} (InstantCast with HJ 633—2012)`;
+                    case "WAQI_InstantCast_CN_25_DRAFT":
+                        return `${providerName} (InstantCast with HJ 633 2025 DRAFT)`;
+                    case "CN_DEATH_AQHI":
+                        return `${providerName} (China CDC Death Risk AQHI)`;
+                    case "CA_AQHI":
+                        return `${providerName} (InstantCast with CA AQHI)`;
+                    case "HK_AQHI":
+                        return `${providerName} (InstantCast with HK AQHI)`;
+                    case "CN_DEATH_HK_AQHI":
+                        return `${providerName} (China CDC Death Risk + HK AQHI)`;
+                    case "AQHI_Multi_CN":
+                        return `${providerName} (AQHI-Multi for CN)`;
+                    case "AQHI_Multi_CN_HK":
+                        return `${providerName} (AQHI-Multi for CN+HK)`;
+                    case "UBA":
+                    default:
+                        return `${providerName} (FB001846)`;
+                }
+            default:
+                return providerName;
+        }
+    }
+
+    /**
+     * 计算单个污染物在目标标准下的 index。
+     *
+     * @param {{pollutantType: string, amount: number, units: string}} pollutant
+     * 单个污染物数据。
+     *
+     * @param {string} pollutantType
+     * 污染物类型（如 OZONE/PM2_5/NO2）。
+     *
+     * @param {{
+     *   units: string,
+     *   ranges: {
+     *     min: { indexes: [number, number], amounts: [number, number] },
+     *     max: { indexes: [number, number], amounts: [number, number] },
+     *     value: Array<{ indexes: [number, number], amounts: [number, number] }>
+     *   }
+     * }} pollutantScale
+     * 该污染物在目标标准下的分段阈值与单位。
+     *
+     * @param {Record<string, string>} friendlyUnits
+     * 友好单位映射表（用于日志展示）。
+     *
+     * @returns {number}
+     * 该污染物的 index；低于最小阈值时返回 min.indexes[0]；超上限时使用 max 区间外推。
+     */
+    static #ComputePollutantIndex(pollutant, pollutantType, pollutantScale, friendlyUnits) {
+        if (!pollutantScale) {
+            Console.warn("PollutantsToIndexes", `标准未定义污染物${pollutantType}，index将标记为-1`);
+            return -1;
+        }
+
+        const { add, subtract, multiply, divide } = SimplePrecisionMath;
+
+        Console.debug(`${pollutantType}: ${pollutant.amount} ${friendlyUnits[pollutant.units] ?? pollutant.units}`);
+
+        const minValidAmount = pollutantScale.ranges.min.amounts[0];
+        if (pollutant.amount < minValidAmount) {
+            Console.error("PollutantsToIndexes", `${pollutantType}的含量无效：${pollutant.amount} ${friendlyUnits[pollutantScale.units]}需要 >= ${minValidAmount}`);
+            return pollutantScale.ranges.min.indexes[0];
+        }
+
+        const isOverRange = pollutant.amount > pollutantScale.ranges.max.amounts[1];
+        if (isOverRange) {
+            Console.warn("PollutantsToIndexes", `检测到爆表指数！${pollutantType}：${pollutant.amount} ${friendlyUnits[pollutantScale.units]}`);
+            Console.warn("PollutantsToIndexes", "注意身体！");
+        }
+
+        const { indexes, amounts } = isOverRange
+            ? pollutantScale.ranges.max
+            : pollutantScale.ranges.value.find(({ amounts }) => {
+                  const [minAmount, maxAmount] = amounts;
+                  return AirQuality.#CeilByPrecision(pollutant.amount, minAmount) >= minAmount && AirQuality.#CeilByPrecision(pollutant.amount, maxAmount) <= maxAmount;
+              });
+        Console.debug(`indexes: ${JSON.stringify(indexes)}`, `amounts: ${JSON.stringify(amounts)}`);
+
+        const [minIndex, maxIndex] = indexes;
+        const [minAmount, maxAmount] = amounts;
+        const index = add(multiply(divide(subtract(maxIndex, minIndex), subtract(maxAmount, minAmount)), subtract(pollutant.amount, minAmount)), pollutant.amount > maxAmount ? maxIndex : minIndex);
+        return index;
+    }
+
+    /**
+     * 将污染物浓度映射为对应标准下的污染物指数（index）。
+     *
+     * 作用：
+     * 1) 按 pollutantScales 定义，逐个污染物查找浓度区间；
+     * 2) 使用 #ComputePollutantIndex 计算单污染物 index；
+     * 3) 返回用于后续主污染物判定的一组 { pollutantType, index }。
+     *
+     * @param {Array<{pollutantType: string, amount: number, units: string}>} pollutants
+     * 污染物列表。
+     * - amount 的单位由 units 字段表示（如 µg/m³、mg/m³、ppb、ppm）。
+     * - 进入该方法前应已与 pollutantScales 的目标单位对齐。
+     *
+     * @param {Record<string, {
+     *   units: string,
+     *   ranges: {
+     *     min: { indexes: [number, number], amounts: [number, number] },
+     *     max: { indexes: [number, number], amounts: [number, number] },
+     *     value: Array<{ indexes: [number, number], amounts: [number, number] }>
+     *   }
+     * }>} pollutantScales
+     * 指标标准定义，包含每种污染物的单位及分段阈值。
+     *
+     * @returns {Array<{pollutantType: string, index: number}>}
+     * 每种标准污染物对应的 index 列表。
+     * - 若标准所需污染物缺失，返回该污染物 index=-1。
+     */
+    static #PollutantsToIndexes(pollutants = [], pollutantScales) {
+        return pollutants.map(pollutant => {
+            const index = AirQuality.#ComputePollutantIndex(pollutant, pollutant.pollutantType, pollutantScales?.[pollutant.pollutantType], AirQuality.Config.Units.Friendly);
+            pollutant.index = index;
+            return pollutant;
+        });
+    }
+
+    static PrimaryPollutant(pollutants = [], categories) {
+        Console.info("☑️ PrimaryPollutant");
+        const failedPollutant = { pollutantType: "NOT_AVAILABLE", index: -1, categoryIndex: -1 };
+
+        if (!Array.isArray(pollutants) || pollutants.length === 0) {
+            Console.debug(`pollutants: ${JSON.stringify(pollutants)}`);
+            Console.error("PrimaryPollutant", "pollutants无效");
+            return failedPollutant;
+        }
+
+        const indexesWithCategory = pollutants
+            .filter(({ index }) => Number.isFinite(index))
+            .map(pollutant => ({
+                ...pollutant,
+                categoryIndex: AirQuality.CategoryIndex(pollutant.index, categories),
+            }))
+            .sort((a, b) => b.index - a.index);
+
+        if (indexesWithCategory.length === 0) {
+            Console.debug(`pollutants: ${JSON.stringify(pollutants)}`, `indexesWithCategory: ${JSON.stringify(indexesWithCategory)}`);
+            Console.error("PrimaryPollutant", "找不到有效的index");
+            return failedPollutant;
+        }
+
+        const maxCategoryIndex = indexesWithCategory.reduce((max, { categoryIndex }) => (categoryIndex > max ? categoryIndex : max), Number.NEGATIVE_INFINITY);
+        const primaryPollutants = indexesWithCategory.filter(({ categoryIndex }) => categoryIndex === maxCategoryIndex);
+
+        if (primaryPollutants.length > 1) {
+            Console.warn("PrimaryPollutant", `检测到多个同级别的污染物，maxCategoryIndex：${maxCategoryIndex}`);
+            primaryPollutants.map(({ pollutantType, index }) => Console.warn("GetPrimaryPollutants", `${pollutantType}：${index}`));
+        }
+
+        const primaryPollutant = primaryPollutants[0];
+        Console.info("✅ PrimaryPollutant", `primaryPollutant: ${JSON.stringify(primaryPollutant)}`);
+        return primaryPollutant;
+    }
+
+    /**
+     * 将污染物浓度转换为统一 airQuality 结构。
+     *
+     * 作用：
+     * 1) 按 scale 定义将污染物转换到目标单位（可选）；
+     * 2) 计算各污染物指数并确定主污染物；
+     * 3) 产出 WeatherKit 风格 airQuality，并按需执行 index 上限裁剪。
+     *
+     * @param {Array<{pollutantType: string, amount: number, units: string}>} pollutants
+     * 原始污染物数组。
+     * - amount 的物理单位由每个元素的 units 字段决定（如 µg/m³、mg/m³、ppb、ppm）。
+     *
+     * @param {{
+     *   weatherKitScale: {name: string, version?: string, maxIndex?: number},
+     *   pollutants: Record<string, {units: string, stpConversionFactor?: number, ranges: any}>,
+     *   categories: {significantIndex: number, ranges: Array<{categoryIndex: number, indexes: number[]}>}
+     * }} scale
+     * AQI 标准配置。
+     * - scale.pollutants[*].units 为目标单位。
+     * - scale.weatherKitScale.maxIndex 为可选 index 上限。
+     *
+     * @param {{
+     *   stpConversionFactors?: Record<string, number>,
+     *   allowOverRange?: boolean
+     * }} [options]
+     * 计算选项。
+     * - stpConversionFactors：单位换算因子表（无量纲）。提供时会先执行单位转换。
+     * - allowOverRange：是否允许 index 超出 maxIndex；默认 true。
+     *
+     * @returns {{
+     *   index: number,
+     *   isSignificant: boolean,
+     *   categoryIndex: number,
+     *   pollutants: Array<{pollutantType: string, amount: number, units: string}>,
+     *   metadata: {providerName: string, temporarilyUnavailable: boolean},
+     *   primaryPollutant: string,
+     *   scale: string
+     * } | {metadata: {providerName: string, temporarilyUnavailable: boolean}}}
+     * 返回标准化 airQuality；当输入无效时返回 temporarilyUnavailable 结果。
+     */
+    static #PollutantsToAirQuality(pollutants, scale, options = {}) {
+        Console.info("☑️ PollutantsToAirQuality");
+        const stpConversionFactors = options?.stpConversionFactors;
+        const allowOverRange = options?.allowOverRange ?? true;
+
+        if (!Array.isArray(pollutants) || pollutants.length === 0) {
+            Console.debug(`pollutants: ${JSON.stringify(pollutants)}`);
+            Console.error("PollutantsToAirQuality", "pollutants无效");
+            return { metadata: { providerName: "iRingo", temporarilyUnavailable: true } };
+        }
+
+        let newPollutants = [];
+        if (stpConversionFactors) {
+            newPollutants = AirQuality.ConvertUnits(pollutants, stpConversionFactors, scale.pollutants);
+        }
+
+        newPollutants = AirQuality.#PollutantsToIndexes(newPollutants, scale.pollutants);
+        Console.debug("PollutantsToAirQuality", `convertedPollutants: ${JSON.stringify(newPollutants)}`);
+
+        const primaryPollutant = AirQuality.PrimaryPollutant(newPollutants, scale.categories);
+        const maxIndex = scale?.weatherKitScale?.maxIndex;
+        const index = allowOverRange || !Number.isFinite(maxIndex) ? Math.round(primaryPollutant.index) : Math.min(Math.round(primaryPollutant.index), maxIndex);
+        Console.info("✅ PollutantsToAirQuality");
+        return {
+            index,
+            isSignificant: primaryPollutant.categoryIndex >= scale.categories.significantIndex,
+            categoryIndex: primaryPollutant.categoryIndex,
+            pollutants: newPollutants,
+            metadata: { providerName: "iRingo", temporarilyUnavailable: false },
+            primaryPollutant: primaryPollutant.pollutantType,
+            scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+        };
+    }
+
+    /**
+     * 将污染物浓度转换为空气质量健康指数（AQHI）。
+     *
+     * 公式来源：
+     * [10.1016/j.atmosenv.2024.120473]{@link https://doi.org/10.1016/j.atmosenv.2024.120473}
+     *
+     * 健康风险增幅（%AR）：
+     * %AR(total) = %AR(NO2) + %AR(SO2) + %AR(O3) + max(%AR(PM10), %AR(PM2.5))
+     * %AR(X) = [exp(β(X) × C(X)) – 1] × 100
+     * C(X) 为各污染物 3 小时移动平均浓度（µg/m³）。
+     *
+     * @param {Array<{pollutantType: string, amount: number, units: string}>} pollutants
+     * @param {{ weatherKitScale: object, categories: object, betas: object }} scale
+     * @param {{ stpConversionFactors?: object }} [options]
+     * @returns {object} 标准化 airQuality 对象
+     */
+    static #PollutantsToAQHI(pollutants, scale, options = {}) {
+        Console.info("☑️ PollutantsToAQHI");
+
+        if (!Array.isArray(pollutants) || pollutants.length === 0) {
+            Console.debug(`pollutants: ${JSON.stringify(pollutants)}`);
+            Console.error("PollutantsToAQHI", "pollutants无效");
+            return { metadata: { providerName: "iRingo", temporarilyUnavailable: true } };
+        }
+
+        const stpConversionFactors = options?.stpConversionFactors;
+        const { ugm3 } = AirQuality.Config.Units.WeatherKit;
+
+        // 先做单位转换（目标单位均为 µg/m³）
+        const convertedPollutants = stpConversionFactors ? AirQuality.ConvertUnits(pollutants, stpConversionFactors, scale.pollutants) : pollutants;
+
+        // 按 pollutantType 索引浓度
+        const getAmount = type => {
+            const p = convertedPollutants.find(({ pollutantType }) => pollutantType === type);
+            if (!p) return null;
+            if (p.units !== ugm3) {
+                Console.warn("PollutantsToAQHI", `${type} 单位不是 µg/m³（${p.units}），跳过`);
+                return null;
+            }
+            return p.amount;
+        };
+
+        const { betas } = scale;
+        const ar = (beta, concentration) => {
+            if (concentration === null || concentration < 0) return 0;
+            return (Math.exp(beta * concentration) - 1) * 100;
+        };
+
+        const arNO2 = ar(betas.NO2 || 0, getAmount("NO2"));
+        const arSO2 = ar(betas.SO2 || 0, getAmount("SO2"));
+        const arO3 = ar(betas.O3 || 0, getAmount("OZONE"));
+        const arPM10 = ar(betas.PM10 || 0, getAmount("PM10"));
+        const arPM2_5 = ar(betas.PM2_5 || 0, getAmount("PM2_5"));
+        const arPM = Math.max(arPM10, arPM2_5);
+
+        const totalAR = arNO2 + arSO2 + arO3 + arPM;
+        Console.info("PollutantsToAQHI", `%AR: NO2=${arNO2.toFixed(4)}, SO2=${arSO2.toFixed(4)}, O3=${arO3.toFixed(4)}, PM=${arPM.toFixed(4)} (PM10=${arPM10.toFixed(4)}, PM2.5=${arPM2_5.toFixed(4)}), total=${totalAR.toFixed(4)}`);
+
+        // 设置每个污染物的内部 index 为它的 %AR 值
+        convertedPollutants.forEach(p => {
+            switch (p.pollutantType) {
+                case "NO2":
+                    p.index = arNO2;
+                    break;
+                case "SO2":
+                    p.index = arSO2;
+                    break;
+                case "OZONE":
+                    p.index = arO3;
+                    break;
+                case "PM10":
+                    p.index = arPM10;
+                    break;
+                case "PM2_5":
+                    p.index = arPM2_5;
+                    break;
+                default:
+                    p.index = -1;
+            }
+        });
+
+        // 将 %AR 映射到 1–11 的 categoryIndex (即 AQHI 指数)
+        const categoryIndex = AirQuality.CategoryIndex(totalAR, scale.categories);
+
+        // 以最大 %AR 对应的污染物作为主污染物
+        const primaryPollutant = convertedPollutants.reduce((max, cur) => (cur.index > max.index ? cur : max), { pollutantType: "NOT_AVAILABLE", index: -1 });
+
+        Console.info("✅ PollutantsToAQHI", `AQHI: ${categoryIndex}, primaryPollutant: ${primaryPollutant.pollutantType}`);
+        return {
+            index: totalAR,
+            isSignificant: categoryIndex >= scale.categories.significantIndex,
+            categoryIndex,
+            pollutants: convertedPollutants,
+            metadata: { providerName: "iRingo", temporarilyUnavailable: false },
+            primaryPollutant: primaryPollutant.pollutantType,
+            scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+        };
+    }
+
+    static #PollutantsToAQHIMulti(pollutants, scale, options = {}) {
+        Console.info("☑️ PollutantsToAQHIMulti");
+
+        if (!Array.isArray(pollutants) || pollutants.length === 0) {
+            Console.debug(`pollutants: ${JSON.stringify(pollutants)}`);
+            Console.error("PollutantsToAQHIMulti", "pollutants无效");
+            return { metadata: { providerName: "iRingo", temporarilyUnavailable: true } };
+        }
+
+        const stpConversionFactors = options?.stpConversionFactors;
+        const { ugm3 } = AirQuality.Config.Units.WeatherKit;
+        const convertedPollutants = stpConversionFactors ? AirQuality.ConvertUnits(pollutants, stpConversionFactors, scale.pollutants) : pollutants;
+
+        const getAmount = type => {
+            const p = convertedPollutants.find(({ pollutantType }) => pollutantType === type);
+            if (!p) return null;
+            if (p.units !== ugm3) {
+                Console.warn("PollutantsToAQHIMulti", `${type} 单位不是 µg/m³（${p.units}），跳过`);
+                return null;
+            }
+            return p.amount;
+        };
+
+        const { beta, weights } = scale;
+        const contributions = {
+            OZONE: (weights.O3 || 0) * Math.max(getAmount("OZONE") || 0, 0),
+            NO2: (weights.NO2 || 0) * Math.max(getAmount("NO2") || 0, 0),
+            PM10: (weights.PM10 || 0) * Math.max(getAmount("PM10") || 0, 0),
+            PM2_5: (weights.PM2_5 || 0) * Math.max(getAmount("PM2_5") || 0, 0),
+            SO2: (weights.SO2 || 0) * Math.max(getAmount("SO2") || 0, 0),
+        };
+        // When risk(PM 10) > 1.2 * risk(PM 2.5)
+        const usePM10 = contributions.PM10 > 0 && (contributions.PM2_5 <= 0 || contributions.PM10 > contributions.PM2_5 * 1.2);
+        const pmContribution = usePM10 ? contributions.PM10 : contributions.PM2_5;
+        const totalWeighted = contributions.OZONE + contributions.NO2 + contributions.SO2 + pmContribution;
+        const totalRisk = (beta || 0) * totalWeighted;
+
+        Console.info(
+            "PollutantsToAQHIMulti",
+            `risk: O3=${contributions.OZONE.toFixed(4)}, NO2=${contributions.NO2.toFixed(4)}, PM10=${contributions.PM10.toFixed(4)}, PM2.5=${contributions.PM2_5.toFixed(4)}, usePM10=${usePM10}, SO2=${contributions.SO2.toFixed(4)}, totalWeighted=${totalWeighted.toFixed(4)}, totalRisk=${totalRisk.toFixed(4)}`,
+        );
+
+        convertedPollutants.forEach(p => {
+            switch (p.pollutantType) {
+                case "OZONE":
+                    p.index = contributions.OZONE;
+                    break;
+                case "NO2":
+                    p.index = contributions.NO2;
+                    break;
+                case "PM10":
+                    p.index = contributions.PM10;
+                    break;
+                case "PM2_5":
+                    p.index = contributions.PM2_5;
+                    break;
+                case "SO2":
+                    p.index = contributions.SO2;
+                    break;
+                default:
+                    p.index = -1;
+            }
+        });
+
+        const categoryIndex = AirQuality.CategoryIndex(totalRisk, scale.categories);
+        const primaryPollutant = convertedPollutants.reduce((max, cur) => (cur.index > max.index ? cur : max), { pollutantType: "NOT_AVAILABLE", index: -1 });
+
+        Console.info("✅ PollutantsToAQHIMulti", `AQHI: ${categoryIndex}, primaryPollutant: ${primaryPollutant.pollutantType}`);
+        return {
+            index: totalRisk,
+            isSignificant: categoryIndex >= scale.categories.significantIndex,
+            categoryIndex,
+            pollutants: convertedPollutants,
+            metadata: { providerName: "iRingo", temporarilyUnavailable: false },
+            primaryPollutant: primaryPollutant.pollutantType,
+            scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+        };
+    }
+
+    static Config = {
+        Scales: {
+            /**
+             * LQI (DE) - Der Luftqualitätsindex (LQI) des Umweltbundesamtes
+             * Germany Air Quality Index
+             * [Der Luftqualitätsindex - LQI | Umweltbundesamt]{@link https://www.umweltbundesamt.de/themen/luft/luftqualitaet/der-luftqualitaetsindex-lqi}
+             * [Überarbeitung des UBA LQI nach der Herausgabe der WHO AQG 2021]{@link https://www.umweltbundesamt.de/system/files/medien/11850/publikationen/08_2025_uug.pdf}
+             */
+            UBA: {
+                weatherKitScale: {
+                    name: "UBA",
+                },
+                // Indexes below for calculation only, not for display
+                categories: {
+                    significantIndex: 4, // schlecht
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 0.99] }, // sehr gut
+                        { categoryIndex: 2, indexes: [1, 1.99] }, // gut
+                        { categoryIndex: 3, indexes: [2, 2.99] }, // mäßig
+                        { categoryIndex: 4, indexes: [3, 3.99] }, // schlecht
+                        { categoryIndex: 5, indexes: [4, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                    ],
+                },
+                pollutants: {
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 0.99], amounts: [0, 10] },
+                            max: { indexes: [3, 3.99], amounts: [61, 100] },
+                            value: [
+                                { indexes: [0, 0.99], amounts: [0, 10] }, // sehr gut
+                                { indexes: [1, 1.99], amounts: [11, 30] }, // gut
+                                { indexes: [2, 2.99], amounts: [31, 60] }, // mäßig
+                                { indexes: [3, 3.99], amounts: [61, 100] }, // schlecht
+                                { indexes: [4, Number.POSITIVE_INFINITY], amounts: [101, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                            ],
+                        },
+                    },
+                    PM10: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 0.99], amounts: [0, 9] },
+                            max: { indexes: [3, 3.99], amounts: [55, 90] },
+                            value: [
+                                { indexes: [0, 0.99], amounts: [0, 9] }, // sehr gut
+                                { indexes: [1, 1.99], amounts: [10, 27] }, // gut
+                                { indexes: [2, 2.99], amounts: [28, 54] }, // mäßig
+                                { indexes: [3, 3.99], amounts: [55, 90] }, // schlecht
+                                { indexes: [4, Number.POSITIVE_INFINITY], amounts: [91, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                            ],
+                        },
+                    },
+                    PM2_5: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 0.99], amounts: [0, 5] },
+                            max: { indexes: [3, 3.99], amounts: [31, 50] },
+                            value: [
+                                { indexes: [0, 0.99], amounts: [0, 5] }, // sehr gut
+                                { indexes: [1, 1.99], amounts: [6, 15] }, // gut
+                                { indexes: [2, 2.99], amounts: [16, 30] }, // mäßig
+                                { indexes: [3, 3.99], amounts: [31, 50] }, // schlecht
+                                { indexes: [4, Number.POSITIVE_INFINITY], amounts: [51, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                            ],
+                        },
+                    },
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 0.99], amounts: [0, 24] },
+                            max: { indexes: [3, 3.99], amounts: [145, 240] },
+                            value: [
+                                { indexes: [0, 0.99], amounts: [0, 24] }, // sehr gut
+                                { indexes: [1, 1.99], amounts: [25, 72] }, // gut
+                                { indexes: [2, 2.99], amounts: [73, 144] }, // mäßig
+                                { indexes: [3, 3.99], amounts: [145, 240] }, // schlecht
+                                { indexes: [4, Number.POSITIVE_INFINITY], amounts: [241, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                            ],
+                        },
+                    },
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 0.99], amounts: [0, 10] },
+                            max: { indexes: [3, 3.99], amounts: [61, 100] },
+                            value: [
+                                { indexes: [0, 0.99], amounts: [0, 10] }, // sehr gut
+                                { indexes: [1, 1.99], amounts: [11, 30] }, // gut
+                                { indexes: [2, 2.99], amounts: [31, 60] }, // mäßig
+                                { indexes: [3, 3.99], amounts: [61, 100] }, // schlecht
+                                { indexes: [4, Number.POSITIVE_INFINITY], amounts: [101, Number.POSITIVE_INFINITY] }, // sehr schlecht
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * EAQI (EU) - European Air Quality Index
+             * [ETC HE Report 2024/17: EEA´s revision of the European air quality index bands]{@link https://www.eionet.europa.eu/etcs/etc-he/products/etc-he-products/etc-he-reports/etc-he-report-2024-17-eeas-revision-of-the-european-air-quality-index-bands}
+             */
+            EU_EAQI: {
+                weatherKitScale: {
+                    name: "EU.EAQI",
+                    maxIndex: 60,
+                },
+                // Indexes below for calculation only, not for display
+                categories: {
+                    significantIndex: 4, // Poor
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 9] }, // Good
+                        { categoryIndex: 2, indexes: [10, 19] }, // Fair
+                        { categoryIndex: 3, indexes: [20, 29] }, // Moderate
+                        { categoryIndex: 4, indexes: [30, 39] }, // Poor
+                        { categoryIndex: 5, indexes: [40, 49] }, // Very Poor
+                        { categoryIndex: 6, indexes: [50, Number.POSITIVE_INFINITY] }, // Extremely Poor
+                    ],
+                },
+                pollutants: {
+                    PM2_5: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 9], amounts: [0, 5] },
+                            max: { indexes: [40, 49], amounts: [91, 140] },
+                            value: [
+                                { indexes: [0, 9], amounts: [0, 5] }, // Good
+                                { indexes: [10, 19], amounts: [6, 15] }, // Fair
+                                { indexes: [20, 29], amounts: [16, 50] }, // Moderate
+                                { indexes: [30, 39], amounts: [51, 90] }, // Poor
+                                { indexes: [40, 49], amounts: [91, 140] }, // Very Poor
+                                { indexes: [50, Number.POSITIVE_INFINITY], amounts: [141, Number.POSITIVE_INFINITY] }, // Extremely Poor
+                            ],
+                        },
+                    },
+                    PM10: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 9], amounts: [0, 15] },
+                            max: { indexes: [40, 49], amounts: [196, 270] },
+                            value: [
+                                { indexes: [0, 9], amounts: [0, 15] }, // Good
+                                { indexes: [10, 19], amounts: [16, 45] }, // Fair
+                                { indexes: [20, 29], amounts: [46, 120] }, // Moderate
+                                { indexes: [30, 39], amounts: [121, 195] }, // Poor
+                                { indexes: [40, 49], amounts: [196, 270] }, // Very Poor
+                                { indexes: [50, Number.POSITIVE_INFINITY], amounts: [271, Number.POSITIVE_INFINITY] }, // Extremely Poor
+                            ],
+                        },
+                    },
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 9], amounts: [0, 60] },
+                            max: { indexes: [40, 49], amounts: [161, 180] },
+                            value: [
+                                { indexes: [0, 9], amounts: [0, 60] }, // Good
+                                { indexes: [10, 19], amounts: [61, 100] }, // Fair
+                                { indexes: [20, 29], amounts: [101, 120] }, // Moderate
+                                { indexes: [30, 39], amounts: [121, 160] }, // Poor
+                                { indexes: [40, 49], amounts: [161, 180] }, // Very Poor
+                                { indexes: [50, Number.POSITIVE_INFINITY], amounts: [181, Number.POSITIVE_INFINITY] }, // Extremely Poor
+                            ],
+                        },
+                    },
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 9], amounts: [0, 10] },
+                            max: { indexes: [40, 49], amounts: [101, 150] },
+                            value: [
+                                { indexes: [0, 9], amounts: [0, 10] }, // Good
+                                { indexes: [10, 19], amounts: [11, 25] }, // Fair
+                                { indexes: [20, 29], amounts: [26, 60] }, // Moderate
+                                { indexes: [30, 39], amounts: [61, 100] }, // Poor
+                                { indexes: [40, 49], amounts: [101, 150] }, // Very Poor
+                                { indexes: [50, Number.POSITIVE_INFINITY], amounts: [151, Number.POSITIVE_INFINITY] }, // Extremely Poor
+                            ],
+                        },
+                    },
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 9], amounts: [0, 20] },
+                            max: { indexes: [40, 49], amounts: [191, 275] },
+                            value: [
+                                { indexes: [0, 9], amounts: [0, 20] }, // Good
+                                { indexes: [10, 19], amounts: [21, 40] }, // Fair
+                                { indexes: [20, 29], amounts: [41, 125] }, // Moderate
+                                { indexes: [30, 39], amounts: [126, 190] }, // Poor
+                                { indexes: [40, 49], amounts: [191, 275] }, // Very Poor
+                                { indexes: [50, Number.POSITIVE_INFINITY], amounts: [276, Number.MAX_VALUE] }, // Extremely Poor
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * China AQI standard.
+             * [环境空气质量指数（AQI）技术规定（试行）]{@link https://www.mee.gov.cn/ywgz/fgbz/bz/bzwb/jcffbz/201203/t20120302_224166.shtml}
+             */
+            HJ6332012: {
+                weatherKitScale: {
+                    name: "HJ6332012",
+                },
+                categories: {
+                    significantIndex: 3, // 轻度污染
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 50] }, // 优
+                        { categoryIndex: 2, indexes: [51, 100] }, // 良
+                        { categoryIndex: 3, indexes: [101, 150] }, // 轻度污染
+                        { categoryIndex: 4, indexes: [151, 200] }, // 中度污染
+                        { categoryIndex: 5, indexes: [201, 300] }, // 重度污染
+                        { categoryIndex: 6, indexes: [301, 500] }, // 严重污染
+                    ],
+                },
+                pollutants: {
+                    SO2_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [2101, 2620] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 150] },
+                                { indexes: [101, 150], amounts: [151, 475] },
+                                { indexes: [151, 200], amounts: [476, 800] },
+                                { indexes: [201, 300], amounts: [801, 1600] },
+                                { indexes: [301, 400], amounts: [1601, 2100] },
+                                { indexes: [401, 500], amounts: [2101, 2620] },
+                            ],
+                        },
+                    },
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 150] },
+                            max: { indexes: [151, 200], amounts: [651, 800] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 150] },
+                                { indexes: [51, 100], amounts: [151, 500] },
+                                { indexes: [101, 150], amounts: [501, 650] },
+                                { indexes: [151, 200], amounts: [651, 800] },
+                                // 二氧化硫（SO2）1小时平均浓度高于800 ug/m3的，不再进行其空气质量分指数计算，二氧化硫（SO2）空气质量分指数按24小时平均浓度计算的分指数报告。
+                            ],
+                        },
+                    },
+                    NO2_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 40] },
+                            max: { indexes: [401, 500], amounts: [751, 940] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 40] },
+                                { indexes: [51, 100], amounts: [41, 80] },
+                                { indexes: [101, 150], amounts: [81, 180] },
+                                { indexes: [151, 200], amounts: [181, 280] },
+                                { indexes: [201, 300], amounts: [281, 565] },
+                                { indexes: [301, 400], amounts: [566, 750] },
+                                { indexes: [401, 500], amounts: [751, 940] },
+                            ],
+                        },
+                    },
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [401, 500], amounts: [3091, 3840] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 200] },
+                                { indexes: [101, 150], amounts: [201, 700] },
+                                { indexes: [151, 200], amounts: [701, 1200] },
+                                { indexes: [201, 300], amounts: [1201, 2340] },
+                                { indexes: [301, 400], amounts: [2341, 3090] },
+                                { indexes: [401, 500], amounts: [3091, 3840] },
+                            ],
+                        },
+                    },
+                    PM10_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [501, 600] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 150] },
+                                { indexes: [101, 150], amounts: [151, 250] },
+                                { indexes: [151, 200], amounts: [251, 350] },
+                                { indexes: [201, 300], amounts: [351, 420] },
+                                { indexes: [301, 400], amounts: [421, 500] },
+                                { indexes: [401, 500], amounts: [501, 600] },
+                            ],
+                        },
+                    },
+                    CO_24H: {
+                        units: "MILLIGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 2] },
+                            max: { indexes: [401, 500], amounts: [49, 60] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 2] },
+                                { indexes: [51, 100], amounts: [3, 4] },
+                                { indexes: [101, 150], amounts: [5, 14] },
+                                { indexes: [151, 200], amounts: [15, 24] },
+                                { indexes: [201, 300], amounts: [25, 36] },
+                                { indexes: [301, 400], amounts: [37, 48] },
+                                { indexes: [401, 500], amounts: [49, 60] },
+                            ],
+                        },
+                    },
+                    CO: {
+                        units: "MILLIGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 5] },
+                            max: { indexes: [401, 500], amounts: [121, 150] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 5] },
+                                { indexes: [51, 100], amounts: [6, 10] },
+                                { indexes: [101, 150], amounts: [11, 35] },
+                                { indexes: [151, 200], amounts: [36, 60] },
+                                { indexes: [201, 300], amounts: [61, 90] },
+                                { indexes: [301, 400], amounts: [91, 120] },
+                                { indexes: [401, 500], amounts: [121, 150] },
+                            ],
+                        },
+                    },
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 160] },
+                            max: { indexes: [401, 500], amounts: [1001, 1200] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 160] },
+                                { indexes: [51, 100], amounts: [161, 200] },
+                                { indexes: [101, 150], amounts: [201, 300] },
+                                { indexes: [151, 200], amounts: [301, 400] },
+                                { indexes: [201, 300], amounts: [401, 800] },
+                                { indexes: [301, 400], amounts: [801, 1000] },
+                                { indexes: [401, 500], amounts: [1001, 1200] },
+                            ],
+                        },
+                    },
+                    OZONE_8H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [201, 300], amounts: [266, 800] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 160] },
+                                { indexes: [101, 150], amounts: [161, 215] },
+                                { indexes: [151, 200], amounts: [216, 265] },
+                                { indexes: [201, 300], amounts: [266, 800] },
+                                // 臭氧（O3）8小时平均浓度值高于800 ug/m3的，不再进行其空气质量分指数计算，臭氧（O3）空气质量分指数按1小时平均浓度计算的分指数报告。
+                            ],
+                        },
+                    },
+                    PM2_5_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [401, 500], amounts: [351, 500] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 35] },
+                                { indexes: [51, 100], amounts: [36, 75] },
+                                { indexes: [101, 150], amounts: [76, 115] },
+                                { indexes: [151, 200], amounts: [116, 150] },
+                                { indexes: [201, 300], amounts: [151, 250] },
+                                { indexes: [301, 400], amounts: [251, 350] },
+                                { indexes: [401, 500], amounts: [351, 500] },
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * China AQI standard (2025 draft).
+             * [关于公开征求《环境空气质量标准（征求意见稿）》等3项生态环境标准意见的通知]{@link https://www.mee.gov.cn/xxgk2018/xxgk/xxgk06/202512/t20251215_1137858.html}
+             */
+            HJ6332025_DRAFT: {
+                weatherKitScale: {
+                    name: "HJ6332012",
+                },
+                categories: {
+                    significantIndex: 3, // 轻度污染
+                    ranges: [
+                        { categoryIndex: 1, indexes: [1, 50] }, // 优
+                        { categoryIndex: 2, indexes: [51, 100] }, // 良
+                        { categoryIndex: 3, indexes: [101, 150] }, // 轻度污染
+                        { categoryIndex: 4, indexes: [151, 200] }, // 中度污染
+                        { categoryIndex: 5, indexes: [201, 300] }, // 重度污染
+                        { categoryIndex: 6, indexes: [301, 500] }, // 严重污染
+                    ],
+                },
+                pollutants: {
+                    SO2_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [2101, 2620] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 150] },
+                                { indexes: [101, 150], amounts: [151, 475] },
+                                { indexes: [151, 200], amounts: [476, 800] },
+                                { indexes: [201, 300], amounts: [801, 1600] },
+                                { indexes: [301, 400], amounts: [1601, 2100] },
+                                { indexes: [401, 500], amounts: [2101, 2620] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 150] },
+                            max: { indexes: [200, 200], amounts: [801, Number.POSITIVE_INFINITY] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 150] },
+                                { indexes: [51, 100], amounts: [151, 500] },
+                                { indexes: [101, 150], amounts: [501, 650] },
+                                { indexes: [151, 200], amounts: [651, 800] },
+                                // SO2 1小时平均浓度值高于800 μg/m3的，IAQI按照200计。
+                                { indexes: [200, 200], amounts: [801, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    NO2_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 40] },
+                            max: { indexes: [401, 500], amounts: [751, 940] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 40] },
+                                { indexes: [51, 100], amounts: [41, 80] },
+                                { indexes: [101, 150], amounts: [81, 180] },
+                                { indexes: [151, 200], amounts: [181, 280] },
+                                { indexes: [201, 300], amounts: [281, 565] },
+                                { indexes: [301, 400], amounts: [566, 750] },
+                                { indexes: [401, 500], amounts: [751, 940] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [401, 500], amounts: [3091, 3840] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 200] },
+                                { indexes: [101, 150], amounts: [201, 700] },
+                                { indexes: [151, 200], amounts: [701, 1200] },
+                                { indexes: [201, 300], amounts: [1201, 2340] },
+                                { indexes: [301, 400], amounts: [2341, 3090] },
+                                { indexes: [401, 500], amounts: [3091, 3840] },
+                            ],
+                        },
+                    },
+                    CO_24H: {
+                        units: "MILLIGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 2] },
+                            max: { indexes: [401, 500], amounts: [49, 60] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 2] },
+                                { indexes: [51, 100], amounts: [3, 4] },
+                                { indexes: [101, 150], amounts: [5, 14] },
+                                { indexes: [151, 200], amounts: [15, 24] },
+                                { indexes: [201, 300], amounts: [25, 36] },
+                                { indexes: [301, 400], amounts: [37, 48] },
+                                { indexes: [401, 500], amounts: [49, 60] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    CO: {
+                        units: "MILLIGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 5] },
+                            max: { indexes: [401, 500], amounts: [121, 150] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 5] },
+                                { indexes: [51, 100], amounts: [6, 10] },
+                                { indexes: [101, 150], amounts: [11, 35] },
+                                { indexes: [151, 200], amounts: [36, 60] },
+                                { indexes: [201, 300], amounts: [61, 90] },
+                                { indexes: [301, 400], amounts: [91, 120] },
+                                { indexes: [401, 500], amounts: [121, 150] },
+                            ],
+                        },
+                    },
+                    OZONE_8H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [300, 300], amounts: [801, Number.POSITIVE_INFINITY] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 160] },
+                                { indexes: [101, 150], amounts: [161, 215] },
+                                { indexes: [151, 200], amounts: [216, 265] },
+                                { indexes: [201, 300], amounts: [266, 800] },
+                                // O3 8小时平均浓度值高于800 μg/m3的，IAQI按照300计。
+                                { indexes: [300, 300], amounts: [801, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 160] },
+                            max: { indexes: [401, 500], amounts: [1001, 1200] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 160] },
+                                { indexes: [51, 100], amounts: [161, 200] },
+                                { indexes: [101, 150], amounts: [201, 300] },
+                                { indexes: [151, 200], amounts: [301, 400] },
+                                { indexes: [201, 300], amounts: [401, 800] },
+                                { indexes: [301, 400], amounts: [801, 1000] },
+                                { indexes: [401, 500], amounts: [1001, 1200] },
+                            ],
+                        },
+                    },
+                    PM10_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [501, 600] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 120] },
+                                { indexes: [101, 150], amounts: [121, 250] },
+                                { indexes: [151, 200], amounts: [251, 350] },
+                                { indexes: [201, 300], amounts: [351, 420] },
+                                { indexes: [301, 400], amounts: [421, 500] },
+                                { indexes: [401, 500], amounts: [501, 600] },
+                            ],
+                        },
+                    },
+                    PM2_5_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [401, 500], amounts: [351, 500] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 30] },
+                                { indexes: [51, 100], amounts: [31, 60] },
+                                { indexes: [101, 150], amounts: [61, 115] },
+                                { indexes: [151, 200], amounts: [116, 150] },
+                                { indexes: [201, 300], amounts: [151, 250] },
+                                { indexes: [301, 400], amounts: [251, 350] },
+                                { indexes: [401, 500], amounts: [351, 500] },
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * US AQI standard, not equal to NowCast.
+             * [Technical Assistance Document for the Reporting of Daily Air Quality – the Air Quality Index (AQI) (EPA 454/B-24-002, May 2024)]{@link https://document.airnow.gov/technical-assistance-document-for-the-reporting-of-daily-air-quailty.pdf}
+             */
+            EPA_NowCast: {
+                weatherKitScale: {
+                    name: "EPA_NowCast",
+                },
+                categories: {
+                    significantIndex: 3, // Unhealthy for Sensitive Groups
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 50] }, // Good
+                        { categoryIndex: 2, indexes: [51, 100] }, // Moderate
+                        { categoryIndex: 3, indexes: [101, 150] }, // Unhealthy for Sensitive Groups
+                        { categoryIndex: 4, indexes: [151, 200] }, // Unhealthy
+                        { categoryIndex: 5, indexes: [201, 300] }, // Very Unhealthy
+                        { categoryIndex: 6, indexes: [301, Number.POSITIVE_INFINITY] }, // Hazardous
+                    ],
+                },
+                pollutants: {
+                    OZONE_8H: {
+                        units: "PARTS_PER_MILLION",
+                        stpConversionFactor: 1.96189649169881,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 0.054] },
+                            max: { indexes: [201, 300], amounts: [0.106, 0.2] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 0.054] }, // Good
+                                { indexes: [51, 100], amounts: [0.055, 0.07] }, // Moderate
+                                { indexes: [101, 150], amounts: [0.071, 0.085] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [0.086, 0.105] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [0.106, 0.2] }, // Very Unhealthy
+                                // Note 2:
+                                // 8-hour O3 values do not define higher AQI values (≥ 301).
+                                // AQI values of 301 or higher are calculated with 1-hour O3 concentrations.
+                                { indexes: [301, Number.POSITIVE_INFINITY], amounts: [0.201, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    OZONE: {
+                        units: "PARTS_PER_MILLION",
+                        stpConversionFactor: 1.96189649169881,
+                        ranges: {
+                            min: { indexes: [101, 150], amounts: [0.125, 0.164] },
+                            max: { indexes: [301, 500], amounts: [0.405, 0.604] },
+                            value: [
+                                // Note 1:
+                                // Areas are generally required to report the AQI based on 8-hour O3 values. However,
+                                // there are a small number of areas where an AQI based on 1-hour O3 values would be more precautionary.
+                                // In these cases, in addition to calculating the 8-hour O3 index value,
+                                // the 1-hour O3 value may be calculated, and the maximum of the two values reported.
+                                { indexes: [101, 150], amounts: [0.125, 0.164] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [0.165, 0.204] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [0.205, 0.404] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [0.405, 0.604] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [0.605, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    PM2_5_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 9] },
+                            max: { indexes: [301, 500], amounts: [225.5, 325.4] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 9] }, // Good
+                                { indexes: [51, 100], amounts: [9.1, 35.4] }, // Moderate
+                                { indexes: [101, 150], amounts: [35.5, 55.4] }, // Unhealthy for Sensitive Groups
+                                // Note 3 of PM2.5 can be found in EPA 454/B-18-007:
+                                // If a different SHL for PM2.5 is promulgated, these numbers will change accordingly.
+                                //
+                                // It is believed that they forgot to remove this note
+                                { indexes: [151, 200], amounts: [55.5, 125.4] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [125.5, 225.4] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [225.5, 325.4] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [325.5, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    PM10_24H: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 54] },
+                            max: { indexes: [301, 500], amounts: [425, 604] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 54] }, // Good
+                                { indexes: [51, 100], amounts: [55, 154] }, // Moderate
+                                { indexes: [101, 150], amounts: [155, 254] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [255, 354] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [355, 424] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [425, 604] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [605, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    CO_8H: {
+                        units: "PARTS_PER_MILLION",
+                        stpConversionFactor: 1.14491990608754,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 4.4] },
+                            max: { indexes: [301, 500], amounts: [30.5, 50.4] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 4.4] }, // Good
+                                { indexes: [51, 100], amounts: [4.5, 9.4] }, // Moderate
+                                { indexes: [101, 150], amounts: [9.5, 12.4] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [12.5, 15.4] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [15.5, 30.4] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [30.5, 50.4] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [50.5, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    SO2: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 2.618396263625692,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [301, 500], amounts: [605, 1004] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 35] }, // Good
+                                { indexes: [51, 100], amounts: [36, 75] }, // Moderate
+                                { indexes: [101, 150], amounts: [76, 185] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [186, 304] }, // Unhealthy
+                                // Note 3 of SO2:
+                                // 1-hour SO2 values do not define higher AQI values (≥ 200).
+                                // AQI values of 200 or greater are calculated with 24-hour SO2 concentrations.
+                                //
+                                // It is believed that they forgot to remove this note
+                                { indexes: [201, 300], amounts: [305, 604] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [605, 1004] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [1005, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    NO2: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 1.880472698306222,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 53] },
+                            max: { indexes: [301, 500], amounts: [1250, 2049] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 53] }, // Good
+                                { indexes: [51, 100], amounts: [54, 100] }, // Moderate
+                                { indexes: [101, 150], amounts: [101, 360] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [361, 649] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [650, 1249] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [1250, 2049] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [2050, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * WAQI InstantCast in EPA_NowCast. Basically is a method to calculate indexes based on 1-hour pollutants.
+             * [A Beginner's Guide to Air Quality Instant-Cast and Now-Cast.]{@link https://aqicn.org/faq/2015-03-15/air-quality-nowcast-a-beginners-guide/}
+             * [Ozone AQI Scale update]{@link https://aqicn.org/faq/2016-08-10/ozone-aqi-scale-update/}
+             */
+            WAQI_InstantCast_US: {
+                weatherKitScale: {
+                    name: "EPA_NowCast",
+                    maxIndex: 500,
+                },
+                categories: {
+                    significantIndex: 3, // Unhealthy for Sensitive Groups
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 50] }, // Good
+                        { categoryIndex: 2, indexes: [51, 100] }, // Moderate
+                        { categoryIndex: 3, indexes: [101, 150] }, // Unhealthy for Sensitive Groups
+                        { categoryIndex: 4, indexes: [151, 200] }, // Unhealthy
+                        { categoryIndex: 5, indexes: [201, 300] }, // Very Unhealthy
+                        { categoryIndex: 6, indexes: [301, Number.POSITIVE_INFINITY] }, // Hazardous
+                    ],
+                },
+                // Eventually we will convert it to ppb
+                pollutants: {
+                    // [Ozone AQI Scale update](https://aqicn.org/faq/2016-08-10/ozone-aqi-scale-update/)
+                    OZONE: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 1.96189649169881,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 62.5] },
+                            max: { indexes: [301, 500], amounts: [405.1, 605] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 62.5] }, // Good
+                                { indexes: [51, 100], amounts: [62.6, 101.5] }, // Moderate
+                                { indexes: [101, 150], amounts: [101.6, 152.5] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [152.6, 205] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [205.1, 405] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [405.1, 605] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [605.1, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    PM2_5: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 9] },
+                            max: { indexes: [301, 500], amounts: [225.5, 325.4] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 9] }, // Good
+                                { indexes: [51, 100], amounts: [9.1, 35.4] }, // Moderate
+                                { indexes: [101, 150], amounts: [35.5, 55.4] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [55.5, 125.4] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [125.5, 225.4] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [225.5, 325.4] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [325.5, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    PM10: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 54] },
+                            max: { indexes: [301, 500], amounts: [425, 604] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 54] }, // Good
+                                { indexes: [51, 100], amounts: [55, 154] }, // Moderate
+                                { indexes: [101, 150], amounts: [155, 254] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [255, 354] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [355, 424] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [425, 604] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [605, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    CO: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 1.144511152104645,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 4400] },
+                            max: { indexes: [301, 500], amounts: [30401, 50400] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 4400] }, // Good
+                                { indexes: [51, 100], amounts: [4401, 9400] }, // Moderate
+                                { indexes: [101, 150], amounts: [9401, 12400] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [12401, 15400] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [15401, 30400] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [30401, 50400] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [50401, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    SO2: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 2.618396263625692,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [301, 500], amounts: [605, 1004] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 35] }, // Good
+                                { indexes: [51, 100], amounts: [36, 75] }, // Moderate
+                                { indexes: [101, 150], amounts: [76, 185] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [186, 304] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [305, 604] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [605, 1004] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [1005, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                    NO2: {
+                        units: "PARTS_PER_BILLION",
+                        stpConversionFactor: 1.880472698306222,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 53] },
+                            max: { indexes: [301, 500], amounts: [1250, 2049] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 53] }, // Good
+                                { indexes: [51, 100], amounts: [54, 100] }, // Moderate
+                                { indexes: [101, 150], amounts: [101, 360] }, // Unhealthy for Sensitive Groups
+                                { indexes: [151, 200], amounts: [361, 649] }, // Unhealthy
+                                { indexes: [201, 300], amounts: [650, 1249] }, // Very Unhealthy
+                                { indexes: [301, 500], amounts: [1250, 2049] }, // Hazardous
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [2050, Number.POSITIVE_INFINITY] }, // Hazardous
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * WAQI InstantCast in HJ6332012.
+             * Use 24-hour SO2 when > 800, 24-hour PM10 and PM2.5 as 1-hour.
+             * 1-hour for others.
+             */
+            WAQI_InstantCast_CN: {
+                weatherKitScale: {
+                    name: "HJ6332012",
+                    maxIndex: 500,
+                },
+                categories: {
+                    significantIndex: 3, // 轻度污染
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 50] }, // 优
+                        { categoryIndex: 2, indexes: [51, 100] }, // 良
+                        { categoryIndex: 3, indexes: [101, 150] }, // 轻度污染
+                        { categoryIndex: 4, indexes: [151, 200] }, // 中度污染
+                        { categoryIndex: 5, indexes: [201, 300] }, // 重度污染
+                        { categoryIndex: 6, indexes: [301, Number.POSITIVE_INFINITY] }, // 严重污染
+                    ],
+                },
+                pollutants: {
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 150] },
+                            max: { indexes: [401, 500], amounts: [2101, 2620] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 150] },
+                                { indexes: [51, 100], amounts: [151, 500] },
+                                { indexes: [101, 150], amounts: [501, 650] },
+                                { indexes: [151, 200], amounts: [651, 800] },
+                                { indexes: [201, 300], amounts: [801, 1600] },
+                                { indexes: [301, 400], amounts: [1601, 2100] },
+                                { indexes: [401, 500], amounts: [2101, 2620] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [2602, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [401, 500], amounts: [3091, 3840] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 200] },
+                                { indexes: [101, 150], amounts: [201, 700] },
+                                { indexes: [151, 200], amounts: [701, 1200] },
+                                { indexes: [201, 300], amounts: [1201, 2340] },
+                                { indexes: [301, 400], amounts: [2341, 3090] },
+                                { indexes: [401, 500], amounts: [3091, 3840] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [3841, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    PM10: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [501, 600] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 150] },
+                                { indexes: [101, 150], amounts: [151, 250] },
+                                { indexes: [151, 200], amounts: [251, 350] },
+                                { indexes: [201, 300], amounts: [351, 420] },
+                                { indexes: [301, 400], amounts: [421, 500] },
+                                { indexes: [401, 500], amounts: [501, 600] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [601, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    CO: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 5000] },
+                            max: { indexes: [401, 500], amounts: [120001, 150000] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 5000] },
+                                { indexes: [51, 100], amounts: [5001, 10000] },
+                                { indexes: [101, 150], amounts: [10001, 35000] },
+                                { indexes: [151, 200], amounts: [35001, 60000] },
+                                { indexes: [201, 300], amounts: [60001, 90000] },
+                                { indexes: [301, 400], amounts: [90001, 120000] },
+                                { indexes: [401, 500], amounts: [120001, 150000] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [150001, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 160] },
+                            max: { indexes: [401, 500], amounts: [1001, 1200] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 160] },
+                                { indexes: [51, 100], amounts: [161, 200] },
+                                { indexes: [101, 150], amounts: [201, 300] },
+                                { indexes: [151, 200], amounts: [301, 400] },
+                                { indexes: [201, 300], amounts: [401, 800] },
+                                { indexes: [301, 400], amounts: [801, 1000] },
+                                { indexes: [401, 500], amounts: [1001, 1200] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [1201, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    PM2_5: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [401, 500], amounts: [351, 500] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 35] },
+                                { indexes: [51, 100], amounts: [36, 75] },
+                                { indexes: [101, 150], amounts: [76, 115] },
+                                { indexes: [151, 200], amounts: [116, 150] },
+                                { indexes: [201, 300], amounts: [151, 250] },
+                                { indexes: [301, 400], amounts: [251, 350] },
+                                { indexes: [401, 500], amounts: [351, 500] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [501, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                },
+            },
+            WAQI_InstantCast_CN_25_DRAFT: {
+                weatherKitScale: {
+                    name: "HJ6332012",
+                    maxIndex: 500,
+                },
+                categories: {
+                    significantIndex: 3, // 轻度污染
+                    ranges: [
+                        { categoryIndex: 1, indexes: [1, 50] }, // 优
+                        { categoryIndex: 2, indexes: [51, 100] }, // 良
+                        { categoryIndex: 3, indexes: [101, 150] }, // 轻度污染
+                        { categoryIndex: 4, indexes: [151, 200] }, // 中度污染
+                        { categoryIndex: 5, indexes: [201, 300] }, // 重度污染
+                        { categoryIndex: 6, indexes: [301, Number.POSITIVE_INFINITY] }, // 严重污染
+                    ],
+                },
+                pollutants: {
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    SO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 150] },
+                            max: { indexes: [200, 200], amounts: [801, Number.POSITIVE_INFINITY] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 150] },
+                                { indexes: [51, 100], amounts: [151, 500] },
+                                { indexes: [101, 150], amounts: [501, 650] },
+                                { indexes: [151, 200], amounts: [651, 800] },
+                                // SO2 1小时平均浓度值高于800 μg/m3的，IAQI按照200计。
+                                { indexes: [200, 200], amounts: [801, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    NO2: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 100] },
+                            max: { indexes: [401, 500], amounts: [3091, 3840] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 100] },
+                                { indexes: [51, 100], amounts: [101, 200] },
+                                { indexes: [101, 150], amounts: [201, 700] },
+                                { indexes: [151, 200], amounts: [701, 1200] },
+                                { indexes: [201, 300], amounts: [1201, 2340] },
+                                { indexes: [301, 400], amounts: [2341, 3090] },
+                                { indexes: [401, 500], amounts: [3091, 3840] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [3841, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    CO: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 5000] },
+                            max: { indexes: [401, 500], amounts: [120001, 150000] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 5000] },
+                                { indexes: [51, 100], amounts: [5001, 10000] },
+                                { indexes: [101, 150], amounts: [10001, 35000] },
+                                { indexes: [151, 200], amounts: [35001, 60000] },
+                                { indexes: [201, 300], amounts: [60001, 90000] },
+                                { indexes: [301, 400], amounts: [90001, 120000] },
+                                { indexes: [401, 500], amounts: [120001, 150000] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [150001, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    // SO2、NO2、CO和O3 1小时平均浓度限值仅用于实时报。
+                    OZONE: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 160] },
+                            max: { indexes: [401, 500], amounts: [1001, 1200] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 160] },
+                                { indexes: [51, 100], amounts: [161, 200] },
+                                { indexes: [101, 150], amounts: [201, 300] },
+                                { indexes: [151, 200], amounts: [301, 400] },
+                                { indexes: [201, 300], amounts: [401, 800] },
+                                { indexes: [301, 400], amounts: [801, 1000] },
+                                { indexes: [401, 500], amounts: [1001, 1200] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [1201, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    PM10: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 50] },
+                            max: { indexes: [401, 500], amounts: [501, 600] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 50] },
+                                { indexes: [51, 100], amounts: [51, 120] },
+                                { indexes: [101, 150], amounts: [121, 250] },
+                                { indexes: [151, 200], amounts: [251, 350] },
+                                { indexes: [201, 300], amounts: [351, 420] },
+                                { indexes: [301, 400], amounts: [421, 500] },
+                                { indexes: [401, 500], amounts: [501, 600] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [601, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                    PM2_5: {
+                        units: "MICROGRAMS_PER_CUBIC_METER",
+                        stpConversionFactor: -1,
+                        ranges: {
+                            min: { indexes: [0, 50], amounts: [0, 35] },
+                            max: { indexes: [401, 500], amounts: [351, 500] },
+                            value: [
+                                { indexes: [0, 50], amounts: [0, 30] },
+                                { indexes: [51, 100], amounts: [31, 60] },
+                                { indexes: [101, 150], amounts: [61, 115] },
+                                { indexes: [151, 200], amounts: [116, 150] },
+                                { indexes: [201, 300], amounts: [151, 250] },
+                                { indexes: [301, 400], amounts: [251, 350] },
+                                { indexes: [401, 500], amounts: [351, 500] },
+                                { indexes: [501, Number.POSITIVE_INFINITY], amounts: [501, Number.POSITIVE_INFINITY] },
+                            ],
+                        },
+                    },
+                },
+            },
+            /**
+             * Hong Kong Air Quality Health Index (AQHI).
+             * [10.1016/j.atmosenv.2024.120473]{@link https://doi.org/10.1016/j.atmosenv.2024.120473}
+             * [AQHI 說明 | 香港環境保護署]{@link https://www.aqhi.gov.hk/tc/what-is-aqhi/faqs.html}
+             */
+            HK_AQHI: {
+                weatherKitScale: {
+                    name: "HK.AQHI",
+                },
+                categories: {
+                    significantIndex: 7, // 高 (AQHI 7 及以上)
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 1.87] },
+                        { categoryIndex: 2, indexes: [1.88, 3.73] },
+                        { categoryIndex: 3, indexes: [3.74, 5.6] },
+                        { categoryIndex: 4, indexes: [5.61, 7.46] },
+                        { categoryIndex: 5, indexes: [7.47, 9.33] },
+                        { categoryIndex: 6, indexes: [9.34, 11.2] },
+                        { categoryIndex: 7, indexes: [11.21, 12.81] },
+                        { categoryIndex: 8, indexes: [12.82, 14.94] },
+                        { categoryIndex: 9, indexes: [14.95, 17.08] },
+                        { categoryIndex: 10, indexes: [17.09, 19.21] },
+                        { categoryIndex: 11, indexes: [19.22, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                // β 系数（回归系数），浓度单位 µg/m³
+                betas: {
+                    NO2: 0.0004462559,
+                    SO2: 0.0001393235,
+                    O3: 0.0004888034,
+                    PM10: 0.0002821751,
+                    PM2_5: 0.0002180567,
+                },
+                // pollutants 仅声明目标单位（均为 µg/m³），供 ConvertUnits 使用
+                pollutants: {
+                    NO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    SO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    OZONE: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM10: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+            /**
+             * Canada Air Quality Health Index (AQHI).
+             * [10.1016/j.atmosenv.2024.120473]{@link https://doi.org/10.1016/j.atmosenv.2024.120473}
+             */
+            CA_AQHI: {
+                weatherKitScale: {
+                    name: "CA.AQHI",
+                },
+                categories: {
+                    significantIndex: 7, // High Health Risk (AQHI > 7)
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 1.04] },
+                        { categoryIndex: 2, indexes: [1.05, 2.08] },
+                        { categoryIndex: 3, indexes: [2.09, 3.12] },
+                        { categoryIndex: 4, indexes: [3.13, 4.16] },
+                        { categoryIndex: 5, indexes: [4.17, 5.2] },
+                        { categoryIndex: 6, indexes: [5.21, 6.24] },
+                        { categoryIndex: 7, indexes: [6.25, 7.28] },
+                        { categoryIndex: 8, indexes: [7.29, 8.32] },
+                        { categoryIndex: 9, indexes: [8.33, 9.36] },
+                        { categoryIndex: 10, indexes: [9.37, 10.4] },
+                        { categoryIndex: 11, indexes: [10.41, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                // β 系数（回归系数），浓度单位 µg/m³
+                betas: {
+                    NO2: 0.000871,
+                    O3: 0.000537,
+                    PM2_5: 0.000487,
+                },
+                pollutants: {
+                    NO2: { units: "PARTS_PER_BILLION", stpConversionFactor: -1 },
+                    OZONE: { units: "PARTS_PER_BILLION", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+            /**
+             * China Air Quality Health Index (AQHI).
+             * [10.1016/j.atmosenv.2024.120473]{@link https://doi.org/10.1016/j.atmosenv.2024.120473}
+             */
+            CN_DEATH_AQHI: {
+                weatherKitScale: {
+                    name: "CN.AQHI",
+                },
+                categories: {
+                    significantIndex: 6, // 四级 (AQHI 6 及以上)
+                    // Categories in AQHI: 一级：0~1，二级：2~3.5，三级：3.6~5，四级：6~10，五级：11
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 2.004] },
+                        { categoryIndex: 2, indexes: [2.005, 4.008] },
+                        // 3: 4.009~6.012
+                        { categoryIndex: 3, indexes: [4.009, 7.018] },
+                        // 4: 6.013~8.016
+                        { categoryIndex: 4, indexes: [7.018, 8.016] },
+                        { categoryIndex: 5, indexes: [8.017, 10.02] },
+                        { categoryIndex: 6, indexes: [10.021, 12.024] },
+                        { categoryIndex: 7, indexes: [12.025, 14.028] },
+                        { categoryIndex: 8, indexes: [14.029, 16.032] },
+                        { categoryIndex: 9, indexes: [16.033, 18.036] },
+                        { categoryIndex: 10, indexes: [18.037, 20.04] },
+                        { categoryIndex: 11, indexes: [20.041, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                // β 系数（回归系数），浓度单位 µg/m³
+                betas: {
+                    NO2: 0.0009,
+                    SO2: 0.00059,
+                    O3: 0.00024,
+                    PM2_5: 0.00022,
+                },
+                pollutants: {
+                    NO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    SO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    OZONE: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+            CN_DEATH_HK_AQHI: {
+                weatherKitScale: {
+                    name: "CN.AQHI",
+                },
+                categories: {
+                    significantIndex: 6, // 四级 (AQHI 6 及以上)
+                    // Categories in AQHI: 一级：0~1，二级：2~3.5，三级：3.6~5，四级：6~10，五级：11
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 2.004] },
+                        { categoryIndex: 2, indexes: [2.005, 4.008] },
+                        // 3: 4.009~6.012
+                        { categoryIndex: 3, indexes: [4.009, 7.018] },
+                        // 4: 6.013~8.016
+                        { categoryIndex: 4, indexes: [7.018, 8.016] },
+                        { categoryIndex: 5, indexes: [8.017, 10.02] },
+                        { categoryIndex: 6, indexes: [10.021, 12.024] },
+                        { categoryIndex: 7, indexes: [12.025, 14.028] },
+                        { categoryIndex: 8, indexes: [14.029, 16.032] },
+                        { categoryIndex: 9, indexes: [16.033, 18.036] },
+                        { categoryIndex: 10, indexes: [18.037, 20.04] },
+                        { categoryIndex: 11, indexes: [20.041, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                // β 系数（回归系数），浓度单位 µg/m³
+                betas: {
+                    NO2: 0.0009,
+                    SO2: 0.00059,
+                    O3: 0.00024,
+                    PM10: 0.0002821751,
+                    PM2_5: 0.0002180567,
+                },
+                pollutants: {
+                    NO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    SO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    OZONE: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM10: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+            AQHI_Multi_CN: {
+                weatherKitScale: {
+                    name: "CA.AQHI",
+                },
+                categories: {
+                    significantIndex: 7,
+                    // 以 WHO AQG 2021: PM2.5 24h=15, O3=100, NO2=25, SO2=40 对应的风险值校准 AQHI=3。
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 5.8453] },
+                        { categoryIndex: 2, indexes: [5.8454, 11.6906] },
+                        { categoryIndex: 3, indexes: [11.6907, 17.536] },
+                        { categoryIndex: 4, indexes: [17.5361, 23.3812] },
+                        { categoryIndex: 5, indexes: [23.3813, 29.2265] },
+                        { categoryIndex: 6, indexes: [29.2266, 35.0718] },
+                        { categoryIndex: 7, indexes: [35.0719, 40.9171] },
+                        { categoryIndex: 8, indexes: [40.9172, 46.7624] },
+                        { categoryIndex: 9, indexes: [46.7625, 52.6077] },
+                        { categoryIndex: 10, indexes: [52.6078, 58.453] },
+                        { categoryIndex: 11, indexes: [58.4531, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                beta: 0.369991,
+                weights: {
+                    O3: 0.271273,
+                    NO2: 0.390781,
+                    PM2_5: 0.120648,
+                    SO2: 0.217224,
+                },
+                pollutants: {
+                    NO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    SO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    OZONE: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+            AQHI_Multi_CN_HK: {
+                weatherKitScale: {
+                    name: "CA.AQHI",
+                },
+                categories: {
+                    significantIndex: 7,
+                    // 以 WHO AQG 2021: PM2.5 24h=15, O3=100, NO2=25, SO2=40 对应的风险值校准 AQHI=3。
+                    ranges: [
+                        { categoryIndex: 1, indexes: [0, 5.8453] },
+                        { categoryIndex: 2, indexes: [5.8454, 11.6906] },
+                        { categoryIndex: 3, indexes: [11.6907, 17.536] },
+                        { categoryIndex: 4, indexes: [17.5361, 23.3812] },
+                        { categoryIndex: 5, indexes: [23.3813, 29.2265] },
+                        { categoryIndex: 6, indexes: [29.2266, 35.0718] },
+                        { categoryIndex: 7, indexes: [35.0719, 40.9171] },
+                        { categoryIndex: 8, indexes: [40.9172, 46.7624] },
+                        { categoryIndex: 9, indexes: [46.7625, 52.6077] },
+                        { categoryIndex: 10, indexes: [52.6078, 58.453] },
+                        { categoryIndex: 11, indexes: [58.4531, Number.POSITIVE_INFINITY] },
+                    ],
+                },
+                beta: 0.369991,
+                weights: {
+                    O3: 0.271273,
+                    NO2: 0.390781,
+                    // Risk from HK AQHI: HK_AQHI_RR(PM10) / HK_AQHI_RR(PM2.5) * AQHI_MULTI_CN_RR(PM2.5)
+                    PM10: 0.156123,
+                    PM2_5: 0.120648,
+                    SO2: 0.217224,
+                },
+                pollutants: {
+                    NO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    SO2: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    OZONE: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM10: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                    PM2_5: { units: "MICROGRAMS_PER_CUBIC_METER", stpConversionFactor: -1 },
+                },
+            },
+        },
+        Pollutants: {
+            co: "CO",
+            no: "NO",
+            no2: "NO2",
+            so2: "SO2",
+            o3: "OZONE",
+            nox: "NOX",
+            pm25: "PM2_5",
+            pm10: "PM10",
+            other: "NOT_AVAILABLE",
+        },
+        CompareCategoryIndexes: {
+            BETTER: "BETTER",
+            SAME: "SAME",
+            UNKNOWN: "UNKNOWN",
+            WORSE: "WORSE",
+        },
+        Units: {
+            WeatherKit: {
+                ugm3: "MICROGRAMS_PER_CUBIC_METER",
+                mgm3: "MILLIGRAMS_PER_CUBIC_METER",
+                ppb: "PARTS_PER_BILLION",
+                ppm: "PARTS_PER_MILLION",
+            },
+            Friendly: {
+                MICROGRAMS_PER_CUBIC_METER: "μg/m3",
+                MILLIGRAMS_PER_CUBIC_METER: "mg/m3",
+                PARTS_PER_BILLION: "ppb",
+                PARTS_PER_MILLION: "ppm",
+            },
+        },
+        /**
+         * Standard Conditions for Temperature and Pressure
+         * [Ozone AQI: Using concentrations in milligrams or ppb?]{@link https://aqicn.org/faq/2015-09-06/ozone-aqi-using-concentrations-in-milligrams-or-ppb/}
+         * [Understanding Units of Measurement - Terrie K. Boguski, P.E. (CHSR)]{@link https://cfpub.epa.gov/ncer_abstracts/index.cfm/fuseaction/display.files/fileid/14285}
+         *
+         * (amount * 12.187 * molecularWeight) / (temperatureInCelsius + 273.15)
+         *
+         * - 12.187 is the inverse of gas constant.
+         * - 273.15 is the 0 celsius in kelvin.
+         * - temperatureInCelsius is 25 in US, 20 in EU.
+         */
+        STP_ConversionFactors: {
+            US: {
+                OZONE: 1.96189649169881, // 47.997 g/mol
+                SO2: 2.618396263625692, // 64.058 g/mol
+                NO2: 1.880472698306222, // 46.005 g/mol
+                CO: 1.14491990608754, // 28.01 g/mol
+                C6H6: 3.192940861982224, // 78.114 g/mol
+                NH3: 0.696148908267651, // 17.031 g/mol
+                NO: 1.226507201073285, // 30.006 g/mol
+            },
+            EU: {
+                OZONE: 1.995358823128092, // 47.997 g/mol
+                SO2: 2.663055930411053, // 64.058 g/mol
+                NO2: 1.912546256182842, // 46.005 g/mol
+                CO: 1.164447791233157, // 28.01 g/mol
+                C6H6: 3.247400027289784, // 78.114 g/mol
+                NH3: 0.708022503837626, // 17.031 g/mol
+                NO: 1.247426648473478, // 30.006 g/mol
+            },
+        },
+    };
+
+    static ConvertUnit(amount, from, to, fromStpConversionFactor = -1, toStpConversionFactor = -1) {
+        Console.info("☑️ ConvertUnit");
+        const friendlyUnits = AirQuality.Config.Units.Friendly;
+        Console.info(`Convert ${amount} from ${friendlyUnits[from]} with ${fromStpConversionFactor} to ${friendlyUnits[to]} with ${toStpConversionFactor}`);
+        if (amount < 0) {
+            Console.error("ConvertUnit", `Amount ${amount} < 0`);
+            return -1;
+        }
+
+        const numAmount = Number(amount.toFixed(15));
+
+        const { ugm3, mgm3, ppb, ppm } = AirQuality.Config.Units.WeatherKit;
+        const ppx = [ppb, ppm];
+        const units = [...ppx, ugm3, mgm3];
+        if (!units.includes(from) || !units.includes(to)) {
+            Console.error("ConvertUnit", "不支持的单位", `from: ${from}`, `to: ${to}`);
+            return -1;
+        }
+
+        const isPpxFrom = ppx.includes(from);
+        const isPpxTo = ppx.includes(to);
+        const isBothPpx = isPpxFrom && isPpxTo;
+        if (isBothPpx && fromStpConversionFactor !== toStpConversionFactor) {
+            if (fromStpConversionFactor <= 0 || toStpConversionFactor <= 0) {
+                Console.error("ConvertUnit", "无效的STP conversion factor", `fromStpConversionFactor: ${fromStpConversionFactor}`, `toStpConversionFactor: ${toStpConversionFactor}`);
+                return -1;
+            }
+
+            const intermediate = AirQuality.ConvertUnit(numAmount, from, ugm3, fromStpConversionFactor);
+            return AirQuality.ConvertUnit(intermediate, ugm3, to, -1, toStpConversionFactor);
+        }
+
+        if (!isBothPpx && isPpxFrom && fromStpConversionFactor <= 0) {
+            Console.error("ConvertUnit", `fromStpConversionFactor ${fromStpConversionFactor} <= 0`);
+            return -1;
+        }
+
+        if (!isBothPpx && isPpxTo && toStpConversionFactor <= 0) {
+            Console.error("ConvertUnit", `toStpConversionFactor ${toStpConversionFactor} <= 0`);
+            return -1;
+        }
+
+        const { multiply, divide } = SimplePrecisionMath;
+        switch (from) {
+            case ppm:
+                switch (to) {
+                    case ppm:
+                        Console.info("✅ ConvertUnit");
+                        return numAmount;
+                    case ppb:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, 1000);
+                    case mgm3:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, fromStpConversionFactor);
+                    case ugm3: {
+                        const inPpb = AirQuality.ConvertUnit(numAmount, from, ppb);
+                        Console.info("✅ ConvertUnit");
+                        return multiply(inPpb, fromStpConversionFactor);
+                    }
+                    default:
+                        return -1;
+                }
+            case ppb:
+                switch (to) {
+                    case ppb:
+                        Console.info("✅ ConvertUnit");
+                        return numAmount;
+                    case ppm:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, 0.001);
+                    case mgm3: {
+                        const inPpm = AirQuality.ConvertUnit(numAmount, from, ppm);
+                        Console.info("✅ ConvertUnit");
+                        return multiply(inPpm, fromStpConversionFactor);
+                    }
+                    case ugm3:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, fromStpConversionFactor);
+                    default:
+                        return -1;
+                }
+            case mgm3:
+                switch (to) {
+                    case mgm3:
+                        Console.info("✅ ConvertUnit");
+                        return numAmount;
+                    case ugm3:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, 1000);
+                    case ppm:
+                        Console.info("✅ ConvertUnit");
+                        return divide(numAmount, toStpConversionFactor);
+                    case ppb: {
+                        const inUgM3 = AirQuality.ConvertUnit(numAmount, from, ugm3);
+                        Console.info("✅ ConvertUnit");
+                        return divide(inUgM3, toStpConversionFactor);
+                    }
+                    default:
+                        return -1;
+                }
+            case ugm3:
+                switch (to) {
+                    case ugm3:
+                        Console.info("✅ ConvertUnit");
+                        return numAmount;
+                    case mgm3:
+                        Console.info("✅ ConvertUnit");
+                        return multiply(numAmount, 0.001);
+                    case ppm: {
+                        const inMgM3 = AirQuality.ConvertUnit(numAmount, from, mgm3);
+                        Console.info("✅ ConvertUnit");
+                        return divide(inMgM3, toStpConversionFactor);
+                    }
+                    case ppb:
+                        Console.info("✅ ConvertUnit");
+                        return divide(numAmount, toStpConversionFactor);
+                    default:
+                        return -1;
+                }
+            default:
+                return -1;
+        }
+    }
+}
+
+const t=new Int32Array(2);var s;new Float32Array(t.buffer),new Float64Array(t.buffer),new Uint16Array(new Uint8Array([1,0]).buffer)[0],function(t){t[t.UTF8_BYTES=1]="UTF8_BYTES",t[t.UTF16_STRING=2]="UTF16_STRING";}(s||(s={}));class i{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsForecastMinute(t,s){return (s||new i).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsForecastMinute(t,s){return t.setPosition(t.position()+4),(s||new i).__init(t.readInt32(t.position())+t.position(),t)}startTime(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}precipitationChance(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationIntensity(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readFloat32(this.bb_pos+t):0}perceivedPrecipitationIntensity(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readFloat32(this.bb_pos+t):0}static startForecastMinute(t){t.startObject(4);}static addStartTime(t,s){t.addFieldInt32(0,s,0);}static addPrecipitationChance(t,s){t.addFieldInt8(1,s,0);}static addPrecipitationIntensity(t,s){t.addFieldFloat32(2,s,0);}static addPerceivedPrecipitationIntensity(t,s){t.addFieldFloat32(3,s,0);}static endForecastMinute(t){return t.endObject()}static createForecastMinute(t,s,e,o,n){return i.startForecastMinute(t),i.addStartTime(t,s),i.addPrecipitationChance(t,e),i.addPrecipitationIntensity(t,o),i.addPerceivedPrecipitationIntensity(t,n),i.endForecastMinute(t)}}class e{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsUUID(t,s){return (s||new e).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsUUID(t,s){return t.setPosition(t.position()+4),(s||new e).__init(t.readInt32(t.position())+t.position(),t)}bytes(t){const s=this.bb.__offset(this.bb_pos,4);return s?this.bb.readUint8(this.bb.__vector(this.bb_pos+s)+t):0}bytesLength(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.__vector_len(this.bb_pos+t):0}bytesArray(){const t=this.bb.__offset(this.bb_pos,4);return t?new Uint8Array(this.bb.bytes().buffer,this.bb.bytes().byteOffset+this.bb.__vector(this.bb_pos+t),this.bb.__vector_len(this.bb_pos+t)):null}static startUUID(t){t.startObject(1);}static addBytes(t,s){t.addFieldOffset(0,s,0);}static createBytesVector(t,s){t.startVector(1,s.length,1);for(let i=s.length-1;i>=0;i--)t.addInt8(s[i]);return t.endVector()}static startBytesVector(t,s){t.startVector(1,s,1);}static endUUID(t){return t.endObject()}static createUUID(t,s){return e.startUUID(t),e.addBytes(t,s),e.endUUID(t)}}var o,n,a=Object.freeze({__proto__:null,ForecastMinute:i,UUID:e});!function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.MUCH_WORSE=1]="MUCH_WORSE",t[t.WORSE=2]="WORSE",t[t.SAME=3]="SAME",t[t.BETTER=4]="BETTER",t[t.MUCH_BETTER=5]="MUCH_BETTER";}(o||(o={})),function(t){t[t.APPLE_INTERNAL=0]="APPLE_INTERNAL",t[t.MODELED=1]="MODELED",t[t.STATION=2]="STATION",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4";}(n||(n={}));let b=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsMetadata(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsMetadata(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}attributionUrl(t){const s=this.bb.__offset(this.bb_pos,4);return s?this.bb.__string(this.bb_pos+s,t):null}expireTime(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}language(t){const s=this.bb.__offset(this.bb_pos,8);return s?this.bb.__string(this.bb_pos+s,t):null}latitude(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readFloat32(this.bb_pos+t):0}longitude(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readFloat32(this.bb_pos+t):0}providerLogo(t){const s=this.bb.__offset(this.bb_pos,14);return s?this.bb.__string(this.bb_pos+s,t):null}providerName(t){const s=this.bb.__offset(this.bb_pos,16);return s?this.bb.__string(this.bb_pos+s,t):null}readTime(){const t=this.bb.__offset(this.bb_pos,18);return t?this.bb.readUint32(this.bb_pos+t):0}reportedTime(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readUint32(this.bb_pos+t):0}temporarilyUnavailable(){const t=this.bb.__offset(this.bb_pos,22);return !!t&&!!this.bb.readInt8(this.bb_pos+t)}sourceType(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.readInt8(this.bb_pos+t):n.APPLE_INTERNAL}static startMetadata(t){t.startObject(11);}static addAttributionUrl(t,s){t.addFieldOffset(0,s,0);}static addExpireTime(t,s){t.addFieldInt32(1,s,0);}static addLanguage(t,s){t.addFieldOffset(2,s,0);}static addLatitude(t,s){t.addFieldFloat32(3,s,0);}static addLongitude(t,s){t.addFieldFloat32(4,s,0);}static addProviderLogo(t,s){t.addFieldOffset(5,s,0);}static addProviderName(t,s){t.addFieldOffset(6,s,0);}static addReadTime(t,s){t.addFieldInt32(7,s,0);}static addReportedTime(t,s){t.addFieldInt32(8,s,0);}static addTemporarilyUnavailable(t,s){t.addFieldInt8(9,+s,0);}static addSourceType(t,s){t.addFieldInt8(10,s,n.APPLE_INTERNAL);}static endMetadata(t){return t.endObject()}static createMetadata(s,i,e,o,n,a,b,r,d,_,h,c){return t.startMetadata(s),t.addAttributionUrl(s,i),t.addExpireTime(s,e),t.addLanguage(s,o),t.addLatitude(s,n),t.addLongitude(s,a),t.addProviderLogo(s,b),t.addProviderName(s,r),t.addReadTime(s,d),t.addReportedTime(s,_),t.addTemporarilyUnavailable(s,h),t.addSourceType(s,c),t.endMetadata(s)}};var r,d;!function(t){t[t.NOT_AVAILABLE=0]="NOT_AVAILABLE",t[t.C6H6=1]="C6H6",t[t.NH3=2]="NH3",t[t.NMHC=3]="NMHC",t[t.NO=4]="NO",t[t.NO2=5]="NO2",t[t.NOX=6]="NOX",t[t.OZONE=7]="OZONE",t[t.PM2_5=8]="PM2_5",t[t.SO2=9]="SO2",t[t.PM10=10]="PM10",t[t.CO=11]="CO",t[t.UNKNOWN12=12]="UNKNOWN12",t[t.UNKNOWN13=13]="UNKNOWN13";}(r||(r={})),function(t){t[t.PARTS_PER_BILLION=0]="PARTS_PER_BILLION",t[t.MICROGRAMS_PER_CUBIC_METER=1]="MICROGRAMS_PER_CUBIC_METER",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3";}(d||(d={}));let _=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsPollutant(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsPollutant(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}pollutantType(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readInt8(this.bb_pos+t):r.NOT_AVAILABLE}amount(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readFloat32(this.bb_pos+t):0}units(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):d.PARTS_PER_BILLION}static startPollutant(t){t.startObject(3);}static addPollutantType(t,s){t.addFieldInt8(0,s,r.NOT_AVAILABLE);}static addAmount(t,s){t.addFieldFloat32(1,s,0);}static addUnits(t,s){t.addFieldInt8(2,s,d.PARTS_PER_BILLION);}static endPollutant(t){return t.endObject()}static createPollutant(s,i,e,o){return t.startPollutant(s),t.addPollutantType(s,i),t.addAmount(s,e),t.addUnits(s,o),t.endPollutant(s)}},h=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsAirQuality(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsAirQuality(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}categoryIndex(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readInt8(this.bb_pos+t):0}index(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt16(this.bb_pos+t):0}isSignificant(){const t=this.bb.__offset(this.bb_pos,10);return !!t&&!!this.bb.readInt8(this.bb_pos+t)}pollutants(t,s){const i=this.bb.__offset(this.bb_pos,12);return i?(s||new _).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}pollutantsLength(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.__vector_len(this.bb_pos+t):0}previousDayComparison(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):o.UNKNOWN}primaryPollutant(){const t=this.bb.__offset(this.bb_pos,16);return t?this.bb.readInt8(this.bb_pos+t):r.NOT_AVAILABLE}scale(t){const s=this.bb.__offset(this.bb_pos,18);return s?this.bb.__string(this.bb_pos+s,t):null}static startAirQuality(t){t.startObject(8);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addCategoryIndex(t,s){t.addFieldInt8(1,s,0);}static addIndex(t,s){t.addFieldInt16(2,s,0);}static addIsSignificant(t,s){t.addFieldInt8(3,+s,0);}static addPollutants(t,s){t.addFieldOffset(4,s,0);}static createPollutantsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPollutantsVector(t,s){t.startVector(4,s,4);}static addPreviousDayComparison(t,s){t.addFieldInt8(5,s,o.UNKNOWN);}static addPrimaryPollutant(t,s){t.addFieldInt8(6,s,r.NOT_AVAILABLE);}static addScale(t,s){t.addFieldOffset(7,s,0);}static endAirQuality(t){return t.endObject()}static createAirQuality(s,i,e,o,n,a,b,r,d){return t.startAirQuality(s),t.addMetadata(s,i),t.addCategoryIndex(s,e),t.addIndex(s,o),t.addIsSignificant(s,n),t.addPollutants(s,a),t.addPreviousDayComparison(s,b),t.addPrimaryPollutant(s,r),t.addScale(s,d),t.endAirQuality(s)}};class c{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsArticles(t,s){return (s||new c).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsArticles(t,s){return t.setPosition(t.position()+4),(s||new c).__init(t.readInt32(t.position())+t.position(),t)}id(t){const s=this.bb.__offset(this.bb_pos,4);return s?this.bb.__string(this.bb_pos+s,t):null}supportedStorefronts(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?this.bb.__string(this.bb.__vector(this.bb_pos+i)+4*t,s):null}supportedStorefrontsLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}alertIds(t,s){const i=this.bb.__offset(this.bb_pos,8);return i?(s||new e).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}alertIdsLength(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.__vector_len(this.bb_pos+t):0}phenomena(t,s){const i=this.bb.__offset(this.bb_pos,10);return i?this.bb.__string(this.bb.__vector(this.bb_pos+i)+4*t,s):null}phenomenaLength(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.__vector_len(this.bb_pos+t):0}headlineOverride(t){const s=this.bb.__offset(this.bb_pos,12);return s?this.bb.__string(this.bb_pos+s,t):null}locale(t){const s=this.bb.__offset(this.bb_pos,14);return s?this.bb.__string(this.bb_pos+s,t):null}static startArticles(t){t.startObject(6);}static addId(t,s){t.addFieldOffset(0,s,0);}static addSupportedStorefronts(t,s){t.addFieldOffset(1,s,0);}static createSupportedStorefrontsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startSupportedStorefrontsVector(t,s){t.startVector(4,s,4);}static addAlertIds(t,s){t.addFieldOffset(2,s,0);}static createAlertIdsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startAlertIdsVector(t,s){t.startVector(4,s,4);}static addPhenomena(t,s){t.addFieldOffset(3,s,0);}static createPhenomenaVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPhenomenaVector(t,s){t.startVector(4,s,4);}static addHeadlineOverride(t,s){t.addFieldOffset(4,s,0);}static addLocale(t,s){t.addFieldOffset(5,s,0);}static endArticles(t){return t.endObject()}static createArticles(t,s,i,e,o,n,a){return c.startArticles(t),c.addId(t,s),c.addSupportedStorefronts(t,i),c.addAlertIds(t,e),c.addPhenomena(t,o),c.addHeadlineOverride(t,n),c.addLocale(t,a),c.endArticles(t)}}var p,l,u,f,N,O,I,F;!function(t){t[t.MEAN=0]="MEAN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5";}(p||(p={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.OBSERVED=1]="OBSERVED",t[t.LIKELY=2]="LIKELY",t[t.POSSIBLE=3]="POSSIBLE",t[t.UNLIKELY=4]="UNLIKELY",t[t.UNKNOWN5=5]="UNKNOWN5";}(l||(l={})),function(t){t[t.STEADY=0]="STEADY",t[t.INC=1]="INC",t[t.DEC=2]="DEC",t[t.UNKNOWN3=3]="UNKNOWN3";}(u||(u={}));class A{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsChange(t,s){return (s||new A).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsChange(t,s){return t.setPosition(t.position()+4),(s||new A).__init(t.readInt32(t.position())+t.position(),t)}forecastStart(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}forecastEnd(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}maxTemperatureChange(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):u.STEADY}minTemperatureChange(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):u.STEADY}dayPrecipitationChange(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):u.STEADY}nightPrecipitationChange(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):u.STEADY}static startChange(t){t.startObject(6);}static addForecastStart(t,s){t.addFieldInt32(0,s,0);}static addForecastEnd(t,s){t.addFieldInt32(1,s,0);}static addMaxTemperatureChange(t,s){t.addFieldInt8(2,s,u.STEADY);}static addMinTemperatureChange(t,s){t.addFieldInt8(3,s,u.STEADY);}static addDayPrecipitationChange(t,s){t.addFieldInt8(4,s,u.STEADY);}static addNightPrecipitationChange(t,s){t.addFieldInt8(5,s,u.STEADY);}static endChange(t){return t.endObject()}static createChange(t,s,i,e,o,n,a){return A.startChange(t),A.addForecastStart(t,s),A.addForecastEnd(t,i),A.addMaxTemperatureChange(t,e),A.addMinTemperatureChange(t,o),A.addDayPrecipitationChange(t,n),A.addNightPrecipitationChange(t,a),A.endChange(t)}}!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.TEMPERATURE_MAX=1]="TEMPERATURE_MAX",t[t.PRECIPITATION=2]="PRECIPITATION",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UVI=4]="UVI";}(f||(f={})),function(t){t[t.MUCHHIGHER=0]="MUCHHIGHER",t[t.HIGHER=1]="HIGHER",t[t.NORMAL=2]="NORMAL",t[t.LOWER=3]="LOWER",t[t.MUCHLOWER=4]="MUCHLOWER",t[t.UNKNOWN5=5]="UNKNOWN5";}(N||(N={}));class m{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsComparison(t,s){return (s||new m).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsComparison(t,s){return t.setPosition(t.position()+4),(s||new m).__init(t.readInt32(t.position())+t.position(),t)}condition(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readInt8(this.bb_pos+t):f.UNKNOWN0}currentValue(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readFloat32(this.bb_pos+t):0}baselineValue(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readFloat32(this.bb_pos+t):0}deviation(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):N.MUCHHIGHER}baselineType(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readUint32(this.bb_pos+t):0}baselineStartDate(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readUint32(this.bb_pos+t):0}static startComparison(t){t.startObject(6);}static addCondition(t,s){t.addFieldInt8(0,s,f.UNKNOWN0);}static addCurrentValue(t,s){t.addFieldFloat32(1,s,0);}static addBaselineValue(t,s){t.addFieldFloat32(2,s,0);}static addDeviation(t,s){t.addFieldInt8(3,s,N.MUCHHIGHER);}static addBaselineType(t,s){t.addFieldInt32(4,s,0);}static addBaselineStartDate(t,s){t.addFieldInt32(5,s,0);}static endComparison(t){return t.endObject()}static createComparison(t,s,i,e,o,n,a){return m.startComparison(t),m.addCondition(t,s),m.addCurrentValue(t,i),m.addBaselineValue(t,e),m.addDeviation(t,o),m.addBaselineType(t,n),m.addBaselineStartDate(t,a),m.endComparison(t)}}!function(t){t[t.CLEAR=0]="CLEAR",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.SLEET=3]="SLEET",t[t.POSSIBLE_SLEET=4]="POSSIBLE_SLEET",t[t.HEAVY_RAIN=5]="HEAVY_RAIN",t[t.RAIN=6]="RAIN",t[t.DRIZZLE=7]="DRIZZLE",t[t.POSSIBLE_DRIZZLE=8]="POSSIBLE_DRIZZLE",t[t.HEAVY_SNOW=9]="HEAVY_SNOW",t[t.SNOW=10]="SNOW",t[t.UNKNOWN11=11]="UNKNOWN11",t[t.UNKNOWN12=12]="UNKNOWN12",t[t.UNKNOWN13=13]="UNKNOWN13",t[t.UNKNOWN14=14]="UNKNOWN14",t[t.UNKNOWN15=15]="UNKNOWN15",t[t.UNKNOWN16=16]="UNKNOWN16",t[t.UNKNOWN17=17]="UNKNOWN17",t[t.UNKNOWN18=18]="UNKNOWN18";}(O||(O={})),function(t){t[t.CLEAR=0]="CLEAR",t[t.START=1]="START",t[t.STOP=2]="STOP",t[t.START_STOP=3]="START_STOP",t[t.STOP_START=4]="STOP_START",t[t.CONSTANT=5]="CONSTANT",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.UNKNOWN7=7]="UNKNOWN7";}(I||(I={})),function(t){t[t.FIRST_AT=0]="FIRST_AT",t[t.SECOND_AT=1]="SECOND_AT",t[t.UNKNOWN2=2]="UNKNOWN2";}(F||(F={}));let U=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsParameter(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsParameter(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}type(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readInt8(this.bb_pos+t):F.FIRST_AT}date(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}static startParameter(t){t.startObject(2);}static addType(t,s){t.addFieldInt8(0,s,F.FIRST_AT);}static addDate(t,s){t.addFieldInt32(1,s,0);}static endParameter(t){return t.endObject()}static createParameter(s,i,e){return t.startParameter(s),t.addType(s,i),t.addDate(s,e),t.endParameter(s)}},W=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsCondition(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsCondition(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}startTime(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}endTime(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}forecastToken(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):I.CLEAR}beginCondition(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):O.CLEAR}endCondition(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):O.CLEAR}parameters(t,s){const i=this.bb.__offset(this.bb_pos,14);return i?(s||new U).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}parametersLength(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.__vector_len(this.bb_pos+t):0}static startCondition(t){t.startObject(6);}static addStartTime(t,s){t.addFieldInt32(0,s,0);}static addEndTime(t,s){t.addFieldInt32(1,s,0);}static addForecastToken(t,s){t.addFieldInt8(2,s,I.CLEAR);}static addBeginCondition(t,s){t.addFieldInt8(3,s,O.CLEAR);}static addEndCondition(t,s){t.addFieldInt8(4,s,O.CLEAR);}static addParameters(t,s){t.addFieldOffset(5,s,0);}static createParametersVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startParametersVector(t,s){t.startVector(4,s,4);}static endCondition(t){return t.endObject()}static createCondition(s,i,e,o,n,a,b){return t.startCondition(s),t.addStartTime(s,i),t.addEndTime(s,e),t.addForecastToken(s,o),t.addBeginCondition(s,n),t.addEndCondition(s,a),t.addParameters(s,b),t.endCondition(s)}};var P,T,y,S;!function(t){t[t.CLEAR=0]="CLEAR",t[t.RAIN=1]="RAIN",t[t.SNOW=2]="SNOW",t[t.SLEET=3]="SLEET",t[t.HAIL=4]="HAIL",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.MIXED=6]="MIXED";}(P||(P={}));class C{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsPrecipitationAmountByType(t,s){return (s||new C).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsPrecipitationAmountByType(t,s){return t.setPosition(t.position()+4),(s||new C).__init(t.readInt32(t.position())+t.position(),t)}precipitationType(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readInt8(this.bb_pos+t):P.CLEAR}expected(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readFloat32(this.bb_pos+t):0}minimumSnow(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readFloat32(this.bb_pos+t):0}maximumSnow(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readFloat32(this.bb_pos+t):0}expectedSnow(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readFloat32(this.bb_pos+t):0}static startPrecipitationAmountByType(t){t.startObject(5);}static addPrecipitationType(t,s){t.addFieldInt8(0,s,P.CLEAR);}static addExpected(t,s){t.addFieldFloat32(1,s,0);}static addMinimumSnow(t,s){t.addFieldFloat32(2,s,0);}static addMaximumSnow(t,s){t.addFieldFloat32(3,s,0);}static addExpectedSnow(t,s){t.addFieldFloat32(4,s,0);}static endPrecipitationAmountByType(t){return t.endObject()}static createPrecipitationAmountByType(t,s,i,e,o,n){return C.startPrecipitationAmountByType(t),C.addPrecipitationType(t,s),C.addExpected(t,i),C.addMinimumSnow(t,e),C.addMaximumSnow(t,o),C.addExpectedSnow(t,n),C.endPrecipitationAmountByType(t)}}!function(t){t[t.RISING=0]="RISING",t[t.FALLING=1]="FALLING",t[t.STEADY=2]="STEADY",t[t.UNKNOWN3=3]="UNKNOWN3";}(T||(T={})),function(t){t[t.CLEAR=0]="CLEAR",t[t.BLIZZARD=1]="BLIZZARD",t[t.PRECIPITATION=2]="PRECIPITATION",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.CLOUDY=5]="CLOUDY",t[t.DRIZZLE=6]="DRIZZLE",t[t.FLURRIES=7]="FLURRIES",t[t.FOGGY=8]="FOGGY",t[t.FREEZING_DRIZZLE=9]="FREEZING_DRIZZLE",t[t.UNKNOWN10=10]="UNKNOWN10",t[t.UNKNOWN11=11]="UNKNOWN11",t[t.UNKNOWN12=12]="UNKNOWN12",t[t.HAZE=13]="HAZE",t[t.HEAVY_RAIN=14]="HEAVY_RAIN",t[t.HEAVY_SNOW=15]="HEAVY_SNOW",t[t.UNKNOWN16=16]="UNKNOWN16",t[t.UNKNOWN17=17]="UNKNOWN17",t[t.ISOLATED_THUNDERSTORMS=18]="ISOLATED_THUNDERSTORMS",t[t.MOSTLY_CLEAR=19]="MOSTLY_CLEAR",t[t.MOSTLY_CLOUDY=20]="MOSTLY_CLOUDY",t[t.PARTLY_CLOUDY=21]="PARTLY_CLOUDY",t[t.RAIN=22]="RAIN",t[t.UNKNOWN23=23]="UNKNOWN23",t[t.UNKNOWN24=24]="UNKNOWN24",t[t.UNKNOWN25=25]="UNKNOWN25",t[t.SNOW=26]="SNOW",t[t.UNKNOWN27=27]="UNKNOWN27",t[t.UNKNOWN28=28]="UNKNOWN28",t[t.UNKNOWN29=29]="UNKNOWN29",t[t.THUNDERSTORMS=30]="THUNDERSTORMS",t[t.UNKNOWN31=31]="UNKNOWN31",t[t.WINDY=32]="WINDY",t[t.WINTRY_MIX=33]="WINTRY_MIX",t[t.UNKNOWN34=34]="UNKNOWN34",t[t.UNKNOWN35=35]="UNKNOWN35",t[t.UNKNOWN36=36]="UNKNOWN36",t[t.UNKNOWN37=37]="UNKNOWN37",t[t.UNKNOWN38=38]="UNKNOWN38",t[t.UNKNOWN39=39]="UNKNOWN39",t[t.UNKNOWN40=40]="UNKNOWN40",t[t.UNKNOWN41=41]="UNKNOWN41",t[t.UNKNOWN42=42]="UNKNOWN42",t[t.UNKNOWN43=43]="UNKNOWN43",t[t.UNKNOWN44=44]="UNKNOWN44";}(y||(y={}));class E{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsCurrentWeatherData(t,s){return (s||new E).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsCurrentWeatherData(t,s){return t.setPosition(t.position()+4),(s||new E).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}asOf(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}cloudCover(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverLowAltPct(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverMidAltPct(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverHighAltPct(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):0}conditionCode(){const t=this.bb.__offset(this.bb_pos,16);return t?this.bb.readInt8(this.bb_pos+t):y.CLEAR}daylight(){const t=this.bb.__offset(this.bb_pos,18);return !!t&&!!this.bb.readInt8(this.bb_pos+t)}humidity(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readInt8(this.bb_pos+t):0}perceivedPrecipitationIntensity(){const t=this.bb.__offset(this.bb_pos,22);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmount1h(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmount6h(){const t=this.bb.__offset(this.bb_pos,26);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmount24h(){const t=this.bb.__offset(this.bb_pos,28);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountNext1h(){const t=this.bb.__offset(this.bb_pos,30);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountNext6h(){const t=this.bb.__offset(this.bb_pos,32);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountNext24h(){const t=this.bb.__offset(this.bb_pos,34);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountNext1hByType(t,s){const i=this.bb.__offset(this.bb_pos,36);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountNext1hByTypeLength(){const t=this.bb.__offset(this.bb_pos,36);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationAmountNext6hByType(t,s){const i=this.bb.__offset(this.bb_pos,38);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountNext6hByTypeLength(){const t=this.bb.__offset(this.bb_pos,38);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationAmountNext24hByType(t,s){const i=this.bb.__offset(this.bb_pos,40);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountNext24hByTypeLength(){const t=this.bb.__offset(this.bb_pos,40);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationAmountPrevious1hByType(t,s){const i=this.bb.__offset(this.bb_pos,42);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountPrevious1hByTypeLength(){const t=this.bb.__offset(this.bb_pos,42);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationAmountPrevious6hByType(t,s){const i=this.bb.__offset(this.bb_pos,44);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountPrevious6hByTypeLength(){const t=this.bb.__offset(this.bb_pos,44);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationAmountPrevious24hByType(t,s){const i=this.bb.__offset(this.bb_pos,46);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountPrevious24hByTypeLength(){const t=this.bb.__offset(this.bb_pos,46);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationIntensity(){const t=this.bb.__offset(this.bb_pos,48);return t?this.bb.readFloat32(this.bb_pos+t):0}pressure(){const t=this.bb.__offset(this.bb_pos,50);return t?this.bb.readFloat32(this.bb_pos+t):0}pressureTrend(){const t=this.bb.__offset(this.bb_pos,52);return t?this.bb.readInt8(this.bb_pos+t):T.RISING}snowfallAmount1h(){const t=this.bb.__offset(this.bb_pos,54);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallAmount6h(){const t=this.bb.__offset(this.bb_pos,56);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallAmount24h(){const t=this.bb.__offset(this.bb_pos,58);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallAmountNext1h(){const t=this.bb.__offset(this.bb_pos,60);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallAmountNext6h(){const t=this.bb.__offset(this.bb_pos,62);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallAmountNext24h(){const t=this.bb.__offset(this.bb_pos,64);return t?this.bb.readFloat32(this.bb_pos+t):0}temperature(){const t=this.bb.__offset(this.bb_pos,66);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureApparent(){const t=this.bb.__offset(this.bb_pos,68);return t?this.bb.readFloat32(this.bb_pos+t):0}unknown34(){const t=this.bb.__offset(this.bb_pos,70);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureDewPoint(){const t=this.bb.__offset(this.bb_pos,72);return t?this.bb.readFloat32(this.bb_pos+t):0}uvIndex(){const t=this.bb.__offset(this.bb_pos,74);return t?this.bb.readInt8(this.bb_pos+t):0}visibility(){const t=this.bb.__offset(this.bb_pos,76);return t?this.bb.readFloat32(this.bb_pos+t):0}windDirection(){const t=this.bb.__offset(this.bb_pos,78);return t?this.bb.readInt16(this.bb_pos+t):0}windGust(){const t=this.bb.__offset(this.bb_pos,80);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeed(){const t=this.bb.__offset(this.bb_pos,82);return t?this.bb.readFloat32(this.bb_pos+t):0}static startCurrentWeatherData(t){t.startObject(40);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addAsOf(t,s){t.addFieldInt32(1,s,0);}static addCloudCover(t,s){t.addFieldInt8(2,s,0);}static addCloudCoverLowAltPct(t,s){t.addFieldInt8(3,s,0);}static addCloudCoverMidAltPct(t,s){t.addFieldInt8(4,s,0);}static addCloudCoverHighAltPct(t,s){t.addFieldInt8(5,s,0);}static addConditionCode(t,s){t.addFieldInt8(6,s,y.CLEAR);}static addDaylight(t,s){t.addFieldInt8(7,+s,0);}static addHumidity(t,s){t.addFieldInt8(8,s,0);}static addPerceivedPrecipitationIntensity(t,s){t.addFieldFloat32(9,s,0);}static addPrecipitationAmount1h(t,s){t.addFieldFloat32(10,s,0);}static addPrecipitationAmount6h(t,s){t.addFieldFloat32(11,s,0);}static addPrecipitationAmount24h(t,s){t.addFieldFloat32(12,s,0);}static addPrecipitationAmountNext1h(t,s){t.addFieldFloat32(13,s,0);}static addPrecipitationAmountNext6h(t,s){t.addFieldFloat32(14,s,0);}static addPrecipitationAmountNext24h(t,s){t.addFieldFloat32(15,s,0);}static addPrecipitationAmountNext1hByType(t,s){t.addFieldOffset(16,s,0);}static createPrecipitationAmountNext1hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountNext1hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationAmountNext6hByType(t,s){t.addFieldOffset(17,s,0);}static createPrecipitationAmountNext6hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountNext6hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationAmountNext24hByType(t,s){t.addFieldOffset(18,s,0);}static createPrecipitationAmountNext24hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountNext24hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationAmountPrevious1hByType(t,s){t.addFieldOffset(19,s,0);}static createPrecipitationAmountPrevious1hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountPrevious1hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationAmountPrevious6hByType(t,s){t.addFieldOffset(20,s,0);}static createPrecipitationAmountPrevious6hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountPrevious6hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationAmountPrevious24hByType(t,s){t.addFieldOffset(21,s,0);}static createPrecipitationAmountPrevious24hByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountPrevious24hByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationIntensity(t,s){t.addFieldFloat32(22,s,0);}static addPressure(t,s){t.addFieldFloat32(23,s,0);}static addPressureTrend(t,s){t.addFieldInt8(24,s,T.RISING);}static addSnowfallAmount1h(t,s){t.addFieldFloat32(25,s,0);}static addSnowfallAmount6h(t,s){t.addFieldFloat32(26,s,0);}static addSnowfallAmount24h(t,s){t.addFieldFloat32(27,s,0);}static addSnowfallAmountNext1h(t,s){t.addFieldFloat32(28,s,0);}static addSnowfallAmountNext6h(t,s){t.addFieldFloat32(29,s,0);}static addSnowfallAmountNext24h(t,s){t.addFieldFloat32(30,s,0);}static addTemperature(t,s){t.addFieldFloat32(31,s,0);}static addTemperatureApparent(t,s){t.addFieldFloat32(32,s,0);}static addUnknown34(t,s){t.addFieldFloat32(33,s,0);}static addTemperatureDewPoint(t,s){t.addFieldFloat32(34,s,0);}static addUvIndex(t,s){t.addFieldInt8(35,s,0);}static addVisibility(t,s){t.addFieldFloat32(36,s,0);}static addWindDirection(t,s){t.addFieldInt16(37,s,0);}static addWindGust(t,s){t.addFieldFloat32(38,s,0);}static addWindSpeed(t,s){t.addFieldFloat32(39,s,0);}static endCurrentWeatherData(t){return t.endObject()}static createCurrentWeatherData(t,s,i,e,o,n,a,b,r,d,_,h,c,p,l,u,f,N,O,I,F,A,m,U,W,P,T,y,S,C,g,K,R,L,w,v,M,D,V,x,H){return E.startCurrentWeatherData(t),E.addMetadata(t,s),E.addAsOf(t,i),E.addCloudCover(t,e),E.addCloudCoverLowAltPct(t,o),E.addCloudCoverMidAltPct(t,n),E.addCloudCoverHighAltPct(t,a),E.addConditionCode(t,b),E.addDaylight(t,r),E.addHumidity(t,d),E.addPerceivedPrecipitationIntensity(t,_),E.addPrecipitationAmount1h(t,h),E.addPrecipitationAmount6h(t,c),E.addPrecipitationAmount24h(t,p),E.addPrecipitationAmountNext1h(t,l),E.addPrecipitationAmountNext6h(t,u),E.addPrecipitationAmountNext24h(t,f),E.addPrecipitationAmountNext1hByType(t,N),E.addPrecipitationAmountNext6hByType(t,O),E.addPrecipitationAmountNext24hByType(t,I),E.addPrecipitationAmountPrevious1hByType(t,F),E.addPrecipitationAmountPrevious6hByType(t,A),E.addPrecipitationAmountPrevious24hByType(t,m),E.addPrecipitationIntensity(t,U),E.addPressure(t,W),E.addPressureTrend(t,P),E.addSnowfallAmount1h(t,T),E.addSnowfallAmount6h(t,y),E.addSnowfallAmount24h(t,S),E.addSnowfallAmountNext1h(t,C),E.addSnowfallAmountNext6h(t,g),E.addSnowfallAmountNext24h(t,K),E.addTemperature(t,R),E.addTemperatureApparent(t,L),E.addUnknown34(t,w),E.addTemperatureDewPoint(t,v),E.addUvIndex(t,M),E.addVisibility(t,D),E.addWindDirection(t,V),E.addWindGust(t,x),E.addWindSpeed(t,H),E.endCurrentWeatherData(t)}}class g{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsDayPartForecast(t,s){return (s||new g).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsDayPartForecast(t,s){return t.setPosition(t.position()+4),(s||new g).__init(t.readInt32(t.position())+t.position(),t)}forecastStart(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}forecastEnd(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}cloudCover(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverLowAltPct(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverMidAltPct(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverHighAltPct(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):0}conditionCode(){const t=this.bb.__offset(this.bb_pos,16);return t?this.bb.readInt8(this.bb_pos+t):y.CLEAR}humidity(){const t=this.bb.__offset(this.bb_pos,18);return t?this.bb.readInt8(this.bb_pos+t):0}humidityMax(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readInt8(this.bb_pos+t):0}humidityMin(){const t=this.bb.__offset(this.bb_pos,22);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationAmount(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountByType(t,s){const i=this.bb.__offset(this.bb_pos,26);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountByTypeLength(){const t=this.bb.__offset(this.bb_pos,26);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationChance(){const t=this.bb.__offset(this.bb_pos,28);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationType(){const t=this.bb.__offset(this.bb_pos,30);return t?this.bb.readInt8(this.bb_pos+t):P.CLEAR}snowfallAmount(){const t=this.bb.__offset(this.bb_pos,32);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureMax(){const t=this.bb.__offset(this.bb_pos,34);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureMin(){const t=this.bb.__offset(this.bb_pos,36);return t?this.bb.readFloat32(this.bb_pos+t):0}visibilityMax(){const t=this.bb.__offset(this.bb_pos,38);return t?this.bb.readFloat32(this.bb_pos+t):0}visibilityMin(){const t=this.bb.__offset(this.bb_pos,40);return t?this.bb.readFloat32(this.bb_pos+t):0}windDirection(){const t=this.bb.__offset(this.bb_pos,42);return t?this.bb.readInt16(this.bb_pos+t):0}windGustSpeedMax(){const t=this.bb.__offset(this.bb_pos,44);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeed(){const t=this.bb.__offset(this.bb_pos,46);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeedMax(){const t=this.bb.__offset(this.bb_pos,48);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationIntensityMax(){const t=this.bb.__offset(this.bb_pos,50);return t?this.bb.readFloat32(this.bb_pos+t):0}perceivedPrecipitationIntensityMax(){const t=this.bb.__offset(this.bb_pos,52);return t?this.bb.readFloat32(this.bb_pos+t):0}uvIndexMin(){const t=this.bb.__offset(this.bb_pos,54);return t?this.bb.readInt8(this.bb_pos+t):0}uvIndexMax(){const t=this.bb.__offset(this.bb_pos,56);return t?this.bb.readInt8(this.bb_pos+t):0}temperatureApparentMin(){const t=this.bb.__offset(this.bb_pos,58);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureApparentMax(){const t=this.bb.__offset(this.bb_pos,60);return t?this.bb.readFloat32(this.bb_pos+t):0}daylight(){const t=this.bb.__offset(this.bb_pos,62);return !!t&&!!this.bb.readInt8(this.bb_pos+t)}static startDayPartForecast(t){t.startObject(30);}static addForecastStart(t,s){t.addFieldInt32(0,s,0);}static addForecastEnd(t,s){t.addFieldInt32(1,s,0);}static addCloudCover(t,s){t.addFieldInt8(2,s,0);}static addCloudCoverLowAltPct(t,s){t.addFieldInt8(3,s,0);}static addCloudCoverMidAltPct(t,s){t.addFieldInt8(4,s,0);}static addCloudCoverHighAltPct(t,s){t.addFieldInt8(5,s,0);}static addConditionCode(t,s){t.addFieldInt8(6,s,y.CLEAR);}static addHumidity(t,s){t.addFieldInt8(7,s,0);}static addHumidityMax(t,s){t.addFieldInt8(8,s,0);}static addHumidityMin(t,s){t.addFieldInt8(9,s,0);}static addPrecipitationAmount(t,s){t.addFieldFloat32(10,s,0);}static addPrecipitationAmountByType(t,s){t.addFieldOffset(11,s,0);}static createPrecipitationAmountByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationChance(t,s){t.addFieldInt8(12,s,0);}static addPrecipitationType(t,s){t.addFieldInt8(13,s,P.CLEAR);}static addSnowfallAmount(t,s){t.addFieldFloat32(14,s,0);}static addTemperatureMax(t,s){t.addFieldFloat32(15,s,0);}static addTemperatureMin(t,s){t.addFieldFloat32(16,s,0);}static addVisibilityMax(t,s){t.addFieldFloat32(17,s,0);}static addVisibilityMin(t,s){t.addFieldFloat32(18,s,0);}static addWindDirection(t,s){t.addFieldInt16(19,s,0);}static addWindGustSpeedMax(t,s){t.addFieldFloat32(20,s,0);}static addWindSpeed(t,s){t.addFieldFloat32(21,s,0);}static addWindSpeedMax(t,s){t.addFieldFloat32(22,s,0);}static addPrecipitationIntensityMax(t,s){t.addFieldFloat32(23,s,0);}static addPerceivedPrecipitationIntensityMax(t,s){t.addFieldFloat32(24,s,0);}static addUvIndexMin(t,s){t.addFieldInt8(25,s,0);}static addUvIndexMax(t,s){t.addFieldInt8(26,s,0);}static addTemperatureApparentMin(t,s){t.addFieldFloat32(27,s,0);}static addTemperatureApparentMax(t,s){t.addFieldFloat32(28,s,0);}static addDaylight(t,s){t.addFieldInt8(29,+s,0);}static endDayPartForecast(t){return t.endObject()}static createDayPartForecast(t,s,i,e,o,n,a,b,r,d,_,h,c,p,l,u,f,N,O,I,F,A,m,U,W,P,T,y,S,C,E){return g.startDayPartForecast(t),g.addForecastStart(t,s),g.addForecastEnd(t,i),g.addCloudCover(t,e),g.addCloudCoverLowAltPct(t,o),g.addCloudCoverMidAltPct(t,n),g.addCloudCoverHighAltPct(t,a),g.addConditionCode(t,b),g.addHumidity(t,r),g.addHumidityMax(t,d),g.addHumidityMin(t,_),g.addPrecipitationAmount(t,h),g.addPrecipitationAmountByType(t,c),g.addPrecipitationChance(t,p),g.addPrecipitationType(t,l),g.addSnowfallAmount(t,u),g.addTemperatureMax(t,f),g.addTemperatureMin(t,N),g.addVisibilityMax(t,O),g.addVisibilityMin(t,I),g.addWindDirection(t,F),g.addWindGustSpeedMax(t,A),g.addWindSpeed(t,m),g.addWindSpeedMax(t,U),g.addPrecipitationIntensityMax(t,W),g.addPerceivedPrecipitationIntensityMax(t,P),g.addUvIndexMin(t,T),g.addUvIndexMax(t,y),g.addTemperatureApparentMin(t,S),g.addTemperatureApparentMax(t,C),g.addDaylight(t,E),g.endDayPartForecast(t)}}!function(t){t[t.NEW=0]="NEW",t[t.WAXING_CRESCENT=1]="WAXING_CRESCENT",t[t.FIRST_QUARTER=2]="FIRST_QUARTER",t[t.WAXING_GIBBOUS=3]="WAXING_GIBBOUS",t[t.FULL=4]="FULL",t[t.WANING_GIBBOUS=5]="WANING_GIBBOUS",t[t.THIRD_QUARTER=6]="THIRD_QUARTER",t[t.WANING_CRESCENT=7]="WANING_CRESCENT",t[t.UNKNOWN8=8]="UNKNOWN8";}(S||(S={}));class K{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsDayWeatherConditions(t,s){return (s||new K).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsDayWeatherConditions(t,s){return t.setPosition(t.position()+4),(s||new K).__init(t.readInt32(t.position())+t.position(),t)}forecastStart(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}forecastEnd(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}conditionCode(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):y.CLEAR}humidityMax(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):0}humidityMin(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):0}maxUvIndex(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):0}moonPhase(){const t=this.bb.__offset(this.bb_pos,16);return t?this.bb.readInt8(this.bb_pos+t):S.NEW}moonrise(){const t=this.bb.__offset(this.bb_pos,18);return t?this.bb.readUint32(this.bb_pos+t):0}moonset(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readUint32(this.bb_pos+t):0}precipitationAmount(){const t=this.bb.__offset(this.bb_pos,22);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmountByType(t,s){const i=this.bb.__offset(this.bb_pos,24);return i?(s||new C).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}precipitationAmountByTypeLength(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.__vector_len(this.bb_pos+t):0}precipitationChance(){const t=this.bb.__offset(this.bb_pos,26);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationType(){const t=this.bb.__offset(this.bb_pos,28);return t?this.bb.readInt8(this.bb_pos+t):P.CLEAR}snowfallAmount(){const t=this.bb.__offset(this.bb_pos,30);return t?this.bb.readFloat32(this.bb_pos+t):0}solarMidnight(){const t=this.bb.__offset(this.bb_pos,32);return t?this.bb.readUint32(this.bb_pos+t):0}solarNoon(){const t=this.bb.__offset(this.bb_pos,34);return t?this.bb.readUint32(this.bb_pos+t):0}sunrise(){const t=this.bb.__offset(this.bb_pos,36);return t?this.bb.readUint32(this.bb_pos+t):0}sunriseCivil(){const t=this.bb.__offset(this.bb_pos,38);return t?this.bb.readUint32(this.bb_pos+t):0}sunriseNautical(){const t=this.bb.__offset(this.bb_pos,40);return t?this.bb.readUint32(this.bb_pos+t):0}sunriseAstronomical(){const t=this.bb.__offset(this.bb_pos,42);return t?this.bb.readUint32(this.bb_pos+t):0}sunset(){const t=this.bb.__offset(this.bb_pos,44);return t?this.bb.readUint32(this.bb_pos+t):0}sunsetCivil(){const t=this.bb.__offset(this.bb_pos,46);return t?this.bb.readUint32(this.bb_pos+t):0}sunsetNautical(){const t=this.bb.__offset(this.bb_pos,48);return t?this.bb.readUint32(this.bb_pos+t):0}sunsetAstronomical(){const t=this.bb.__offset(this.bb_pos,50);return t?this.bb.readUint32(this.bb_pos+t):0}temperatureMax(){const t=this.bb.__offset(this.bb_pos,52);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureMaxTime(){const t=this.bb.__offset(this.bb_pos,54);return t?this.bb.readUint32(this.bb_pos+t):0}temperatureMin(){const t=this.bb.__offset(this.bb_pos,56);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureMinTime(){const t=this.bb.__offset(this.bb_pos,58);return t?this.bb.readUint32(this.bb_pos+t):0}windGustSpeedMax(){const t=this.bb.__offset(this.bb_pos,60);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeedAvg(){const t=this.bb.__offset(this.bb_pos,62);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeedMax(){const t=this.bb.__offset(this.bb_pos,64);return t?this.bb.readFloat32(this.bb_pos+t):0}visibilityMax(){const t=this.bb.__offset(this.bb_pos,66);return t?this.bb.readFloat32(this.bb_pos+t):0}visibilityMin(){const t=this.bb.__offset(this.bb_pos,68);return t?this.bb.readFloat32(this.bb_pos+t):0}daytimeForecast(t){const s=this.bb.__offset(this.bb_pos,70);return s?(t||new g).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}overnightForecast(t){const s=this.bb.__offset(this.bb_pos,72);return s?(t||new g).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}restOfDayForecast(t){const s=this.bb.__offset(this.bb_pos,74);return s?(t||new g).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}static startDayWeatherConditions(t){t.startObject(36);}static addForecastStart(t,s){t.addFieldInt32(0,s,0);}static addForecastEnd(t,s){t.addFieldInt32(1,s,0);}static addConditionCode(t,s){t.addFieldInt8(2,s,y.CLEAR);}static addHumidityMax(t,s){t.addFieldInt8(3,s,0);}static addHumidityMin(t,s){t.addFieldInt8(4,s,0);}static addMaxUvIndex(t,s){t.addFieldInt8(5,s,0);}static addMoonPhase(t,s){t.addFieldInt8(6,s,S.NEW);}static addMoonrise(t,s){t.addFieldInt32(7,s,0);}static addMoonset(t,s){t.addFieldInt32(8,s,0);}static addPrecipitationAmount(t,s){t.addFieldFloat32(9,s,0);}static addPrecipitationAmountByType(t,s){t.addFieldOffset(10,s,0);}static createPrecipitationAmountByTypeVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPrecipitationAmountByTypeVector(t,s){t.startVector(4,s,4);}static addPrecipitationChance(t,s){t.addFieldInt8(11,s,0);}static addPrecipitationType(t,s){t.addFieldInt8(12,s,P.CLEAR);}static addSnowfallAmount(t,s){t.addFieldFloat32(13,s,0);}static addSolarMidnight(t,s){t.addFieldInt32(14,s,0);}static addSolarNoon(t,s){t.addFieldInt32(15,s,0);}static addSunrise(t,s){t.addFieldInt32(16,s,0);}static addSunriseCivil(t,s){t.addFieldInt32(17,s,0);}static addSunriseNautical(t,s){t.addFieldInt32(18,s,0);}static addSunriseAstronomical(t,s){t.addFieldInt32(19,s,0);}static addSunset(t,s){t.addFieldInt32(20,s,0);}static addSunsetCivil(t,s){t.addFieldInt32(21,s,0);}static addSunsetNautical(t,s){t.addFieldInt32(22,s,0);}static addSunsetAstronomical(t,s){t.addFieldInt32(23,s,0);}static addTemperatureMax(t,s){t.addFieldFloat32(24,s,0);}static addTemperatureMaxTime(t,s){t.addFieldInt32(25,s,0);}static addTemperatureMin(t,s){t.addFieldFloat32(26,s,0);}static addTemperatureMinTime(t,s){t.addFieldInt32(27,s,0);}static addWindGustSpeedMax(t,s){t.addFieldFloat32(28,s,0);}static addWindSpeedAvg(t,s){t.addFieldFloat32(29,s,0);}static addWindSpeedMax(t,s){t.addFieldFloat32(30,s,0);}static addVisibilityMax(t,s){t.addFieldFloat32(31,s,0);}static addVisibilityMin(t,s){t.addFieldFloat32(32,s,0);}static addDaytimeForecast(t,s){t.addFieldOffset(33,s,0);}static addOvernightForecast(t,s){t.addFieldOffset(34,s,0);}static addRestOfDayForecast(t,s){t.addFieldOffset(35,s,0);}static endDayWeatherConditions(t){return t.endObject()}}class R{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsDailyForecastData(t,s){return (s||new R).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsDailyForecastData(t,s){return t.setPosition(t.position()+4),(s||new R).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}days(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new K).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}daysLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}static startDailyForecastData(t){t.startObject(2);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addDays(t,s){t.addFieldOffset(1,s,0);}static createDaysVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startDaysVector(t,s){t.startVector(4,s,4);}static endDailyForecastData(t){return t.endObject()}static createDailyForecastData(t,s,i){return R.startDailyForecastData(t),R.addMetadata(t,s),R.addDays(t,i),R.endDailyForecastData(t)}}let L=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsForecastPeriodSummary(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsForecastPeriodSummary(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}startTime(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}endTime(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}condition(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):P.CLEAR}precipitationChance(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationIntensity(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readFloat32(this.bb_pos+t):0}static startForecastPeriodSummary(t){t.startObject(5);}static addStartTime(t,s){t.addFieldInt32(0,s,0);}static addEndTime(t,s){t.addFieldInt32(1,s,0);}static addCondition(t,s){t.addFieldInt8(2,s,P.CLEAR);}static addPrecipitationChance(t,s){t.addFieldInt8(3,s,0);}static addPrecipitationIntensity(t,s){t.addFieldFloat32(4,s,0);}static endForecastPeriodSummary(t){return t.endObject()}static createForecastPeriodSummary(s,i,e,o,n,a){return t.startForecastPeriodSummary(s),t.addStartTime(s,i),t.addEndTime(s,e),t.addCondition(s,o),t.addPrecipitationChance(s,n),t.addPrecipitationIntensity(s,a),t.endForecastPeriodSummary(s)}};class w{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsForecastPeriodic(t,s){return (s||new w).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsForecastPeriodic(t,s){return t.setPosition(t.position()+4),(s||new w).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}static startForecastPeriodic(t){t.startObject(1);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static endForecastPeriodic(t){return t.endObject()}static createForecastPeriodic(t,s){return w.startForecastPeriodic(t),w.addMetadata(t,s),w.endForecastPeriodic(t)}}class v{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsHistoricalComparison(t,s){return (s||new v).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsHistoricalComparison(t,s){return t.setPosition(t.position()+4),(s||new v).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}comparisons(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new m).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}comparisonsLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}static startHistoricalComparison(t){t.startObject(2);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addComparisons(t,s){t.addFieldOffset(1,s,0);}static createComparisonsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startComparisonsVector(t,s){t.startVector(4,s,4);}static endHistoricalComparison(t){return t.endObject()}static createHistoricalComparison(t,s,i){return v.startHistoricalComparison(t),v.addMetadata(t,s),v.addComparisons(t,i),v.endHistoricalComparison(t)}}class M{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsHourWeatherConditions(t,s){return (s||new M).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsHourWeatherConditions(t,s){return t.setPosition(t.position()+4),(s||new M).__init(t.readInt32(t.position())+t.position(),t)}forecastStart(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readUint32(this.bb_pos+t):0}cloudCover(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverLowAltPct(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverMidAltPct(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readInt8(this.bb_pos+t):0}cloudCoverHighAltPct(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readInt8(this.bb_pos+t):0}conditionCode(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.readInt8(this.bb_pos+t):y.CLEAR}daylight(){const t=this.bb.__offset(this.bb_pos,16);return !!t&&!!this.bb.readInt8(this.bb_pos+t)}humidity(){const t=this.bb.__offset(this.bb_pos,18);return t?this.bb.readInt8(this.bb_pos+t):0}perceivedPrecipitationIntensity(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationAmount(){const t=this.bb.__offset(this.bb_pos,22);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationIntensity(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.readFloat32(this.bb_pos+t):0}precipitationChance(){const t=this.bb.__offset(this.bb_pos,26);return t?this.bb.readInt8(this.bb_pos+t):0}precipitationType(){const t=this.bb.__offset(this.bb_pos,28);return t?this.bb.readInt8(this.bb_pos+t):P.CLEAR}pressure(){const t=this.bb.__offset(this.bb_pos,30);return t?this.bb.readFloat32(this.bb_pos+t):0}pressureTrend(){const t=this.bb.__offset(this.bb_pos,32);return t?this.bb.readInt8(this.bb_pos+t):T.RISING}snowfallAmount(){const t=this.bb.__offset(this.bb_pos,34);return t?this.bb.readFloat32(this.bb_pos+t):0}snowfallIntensity(){const t=this.bb.__offset(this.bb_pos,36);return t?this.bb.readFloat32(this.bb_pos+t):0}temperature(){const t=this.bb.__offset(this.bb_pos,38);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureApparent(){const t=this.bb.__offset(this.bb_pos,40);return t?this.bb.readFloat32(this.bb_pos+t):0}unknown20(){const t=this.bb.__offset(this.bb_pos,42);return t?this.bb.readFloat32(this.bb_pos+t):0}temperatureDewPoint(){const t=this.bb.__offset(this.bb_pos,44);return t?this.bb.readFloat32(this.bb_pos+t):0}uvIndex(){const t=this.bb.__offset(this.bb_pos,46);return t?this.bb.readInt8(this.bb_pos+t):0}visibility(){const t=this.bb.__offset(this.bb_pos,48);return t?this.bb.readFloat32(this.bb_pos+t):0}windDirection(){const t=this.bb.__offset(this.bb_pos,50);return t?this.bb.readInt16(this.bb_pos+t):0}windGust(){const t=this.bb.__offset(this.bb_pos,52);return t?this.bb.readFloat32(this.bb_pos+t):0}windSpeed(){const t=this.bb.__offset(this.bb_pos,54);return t?this.bb.readFloat32(this.bb_pos+t):0}static startHourWeatherConditions(t){t.startObject(26);}static addForecastStart(t,s){t.addFieldInt32(0,s,0);}static addCloudCover(t,s){t.addFieldInt8(1,s,0);}static addCloudCoverLowAltPct(t,s){t.addFieldInt8(2,s,0);}static addCloudCoverMidAltPct(t,s){t.addFieldInt8(3,s,0);}static addCloudCoverHighAltPct(t,s){t.addFieldInt8(4,s,0);}static addConditionCode(t,s){t.addFieldInt8(5,s,y.CLEAR);}static addDaylight(t,s){t.addFieldInt8(6,+s,0);}static addHumidity(t,s){t.addFieldInt8(7,s,0);}static addPerceivedPrecipitationIntensity(t,s){t.addFieldFloat32(8,s,0);}static addPrecipitationAmount(t,s){t.addFieldFloat32(9,s,0);}static addPrecipitationIntensity(t,s){t.addFieldFloat32(10,s,0);}static addPrecipitationChance(t,s){t.addFieldInt8(11,s,0);}static addPrecipitationType(t,s){t.addFieldInt8(12,s,P.CLEAR);}static addPressure(t,s){t.addFieldFloat32(13,s,0);}static addPressureTrend(t,s){t.addFieldInt8(14,s,T.RISING);}static addSnowfallAmount(t,s){t.addFieldFloat32(15,s,0);}static addSnowfallIntensity(t,s){t.addFieldFloat32(16,s,0);}static addTemperature(t,s){t.addFieldFloat32(17,s,0);}static addTemperatureApparent(t,s){t.addFieldFloat32(18,s,0);}static addUnknown20(t,s){t.addFieldFloat32(19,s,0);}static addTemperatureDewPoint(t,s){t.addFieldFloat32(20,s,0);}static addUvIndex(t,s){t.addFieldInt8(21,s,0);}static addVisibility(t,s){t.addFieldFloat32(22,s,0);}static addWindDirection(t,s){t.addFieldInt16(23,s,0);}static addWindGust(t,s){t.addFieldFloat32(24,s,0);}static addWindSpeed(t,s){t.addFieldFloat32(25,s,0);}static endHourWeatherConditions(t){return t.endObject()}static createHourWeatherConditions(t,s,i,e,o,n,a,b,r,d,_,h,c,p,l,u,f,N,O,I,F,A,m,U,W,P,T){return M.startHourWeatherConditions(t),M.addForecastStart(t,s),M.addCloudCover(t,i),M.addCloudCoverLowAltPct(t,e),M.addCloudCoverMidAltPct(t,o),M.addCloudCoverHighAltPct(t,n),M.addConditionCode(t,a),M.addDaylight(t,b),M.addHumidity(t,r),M.addPerceivedPrecipitationIntensity(t,d),M.addPrecipitationAmount(t,_),M.addPrecipitationIntensity(t,h),M.addPrecipitationChance(t,c),M.addPrecipitationType(t,p),M.addPressure(t,l),M.addPressureTrend(t,u),M.addSnowfallAmount(t,f),M.addSnowfallIntensity(t,N),M.addTemperature(t,O),M.addTemperatureApparent(t,I),M.addUnknown20(t,F),M.addTemperatureDewPoint(t,A),M.addUvIndex(t,m),M.addVisibility(t,U),M.addWindDirection(t,W),M.addWindGust(t,P),M.addWindSpeed(t,T),M.endHourWeatherConditions(t)}}class D{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsHourlyForecastData(t,s){return (s||new D).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsHourlyForecastData(t,s){return t.setPosition(t.position()+4),(s||new D).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}hours(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new M).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}hoursLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}static startHourlyForecastData(t){t.startObject(2);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addHours(t,s){t.addFieldOffset(1,s,0);}static createHoursVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startHoursVector(t,s){t.startVector(4,s,4);}static endHourlyForecastData(t){return t.endObject()}static createHourlyForecastData(t,s,i){return D.startHourlyForecastData(t),D.addMetadata(t,s),D.addHours(t,i),D.endHourlyForecastData(t)}}var V,x;!function(t){t[t.NORMAL=0]="NORMAL",t[t.LOW=1]="LOW",t[t.HIGH=2]="HIGH",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5";}(V||(V={}));class H{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsLocationInfo(t,s){return (s||new H).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsLocationInfo(t,s){return t.setPosition(t.position()+4),(s||new H).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}preciseName(t){const s=this.bb.__offset(this.bb_pos,6);return s?this.bb.__string(this.bb_pos+s,t):null}countryCode(t){const s=this.bb.__offset(this.bb_pos,8);return s?this.bb.__string(this.bb_pos+s,t):null}timeZone(t){const s=this.bb.__offset(this.bb_pos,10);return s?this.bb.__string(this.bb_pos+s,t):null}primaryName(t){const s=this.bb.__offset(this.bb_pos,12);return s?this.bb.__string(this.bb_pos+s,t):null}static startLocationInfo(t){t.startObject(5);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addPreciseName(t,s){t.addFieldOffset(1,s,0);}static addCountryCode(t,s){t.addFieldOffset(2,s,0);}static addTimeZone(t,s){t.addFieldOffset(3,s,0);}static addPrimaryName(t,s){t.addFieldOffset(4,s,0);}static endLocationInfo(t){return t.endObject()}static createLocationInfo(t,s,i,e,o,n){return H.startLocationInfo(t),H.addMetadata(t,s),H.addPreciseName(t,i),H.addCountryCode(t,e),H.addTimeZone(t,o),H.addPrimaryName(t,n),H.endLocationInfo(t)}}!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.AIR_QUALITY_DETAILS=1]="AIR_QUALITY_DETAILS",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.UNKNOWN7=7]="UNKNOWN7",t[t.UNKNOWN8=8]="UNKNOWN8",t[t.TEMPERATURE_FEELS_LIKE_DETAILS=9]="TEMPERATURE_FEELS_LIKE_DETAILS",t[t.UNKNOWN10=10]="UNKNOWN10",t[t.TRENDS=11]="TRENDS",t[t.UV_DETAILS=12]="UV_DETAILS",t[t.UNKNOWN13=13]="UNKNOWN13",t[t.WIND_DETAILS=14]="WIND_DETAILS",t[t.UNKNOWN15=15]="UNKNOWN15",t[t.UNKNOWN16=16]="UNKNOWN16",t[t.UNKNOWN17=17]="UNKNOWN17",t[t.UNKNOWN18=18]="UNKNOWN18";}(x||(x={}));class B{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsPlacement(t,s){return (s||new B).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsPlacement(t,s){return t.setPosition(t.position()+4),(s||new B).__init(t.readInt32(t.position())+t.position(),t)}priority(){const t=this.bb.__offset(this.bb_pos,4);return t?this.bb.readInt8(this.bb_pos+t):0}articles(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new c).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}articlesLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}placement(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readInt8(this.bb_pos+t):x.UNKNOWN0}static startPlacement(t){t.startObject(3);}static addPriority(t,s){t.addFieldInt8(0,s,0);}static addArticles(t,s){t.addFieldOffset(1,s,0);}static createArticlesVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startArticlesVector(t,s){t.startVector(4,s,4);}static addPlacement(t,s){t.addFieldInt8(2,s,x.UNKNOWN0);}static endPlacement(t){return t.endObject()}static createPlacement(t,s,i,e){return B.startPlacement(t),B.addPriority(t,s),B.addArticles(t,i),B.addPlacement(t,e),B.endPlacement(t)}}class j{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsNews(t,s){return (s||new j).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsNews(t,s){return t.setPosition(t.position()+4),(s||new j).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}placements(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new B).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}placementsLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}static startNews(t){t.startObject(2);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addPlacements(t,s){t.addFieldOffset(1,s,0);}static createPlacementsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startPlacementsVector(t,s){t.startVector(4,s,4);}static endNews(t){return t.endObject()}static createNews(t,s,i){return j.startNews(t),j.addMetadata(t,s),j.addPlacements(t,i),j.endNews(t)}}let G=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsNextHourForecastData(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsNextHourForecastData(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}condition(t,s){const i=this.bb.__offset(this.bb_pos,6);return i?(s||new W).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}conditionLength(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.__vector_len(this.bb_pos+t):0}summary(t,s){const i=this.bb.__offset(this.bb_pos,8);return i?(s||new L).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}summaryLength(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.__vector_len(this.bb_pos+t):0}forecastStart(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.readUint32(this.bb_pos+t):0}forecastEnd(){const t=this.bb.__offset(this.bb_pos,12);return t?this.bb.readUint32(this.bb_pos+t):0}minutes(t,s){const e=this.bb.__offset(this.bb_pos,14);return e?(s||new i).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+e)+4*t),this.bb):null}minutesLength(){const t=this.bb.__offset(this.bb_pos,14);return t?this.bb.__vector_len(this.bb_pos+t):0}static startNextHourForecastData(t){t.startObject(6);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addCondition(t,s){t.addFieldOffset(1,s,0);}static createConditionVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startConditionVector(t,s){t.startVector(4,s,4);}static addSummary(t,s){t.addFieldOffset(2,s,0);}static createSummaryVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startSummaryVector(t,s){t.startVector(4,s,4);}static addForecastStart(t,s){t.addFieldInt32(3,s,0);}static addForecastEnd(t,s){t.addFieldInt32(4,s,0);}static addMinutes(t,s){t.addFieldOffset(5,s,0);}static createMinutesVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startMinutesVector(t,s){t.startVector(4,s,4);}static endNextHourForecastData(t){return t.endObject()}static createNextHourForecastData(s,i,e,o,n,a,b){return t.startNextHourForecastData(s),t.addMetadata(s,i),t.addCondition(s,e),t.addSummary(s,o),t.addForecastStart(s,n),t.addForecastEnd(s,a),t.addMinutes(s,b),t.endNextHourForecastData(s)}};var Y,z,Z,k;!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.SHELTER=1]="SHELTER",t[t.EVACUATE=2]="EVACUATE",t[t.PREPARE=3]="PREPARE",t[t.EXECUTE=4]="EXECUTE",t[t.AVOID=5]="AVOID",t[t.MONITOR=6]="MONITOR",t[t.ACCESS=7]="ACCESS",t[t.ALLCLEAR=8]="ALLCLEAR",t[t.NONE=9]="NONE",t[t.UNKNOWN10=10]="UNKNOWN10";}(Y||(Y={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.EXTREME=1]="EXTREME",t[t.SEVERE=2]="SEVERE",t[t.MODERATE=3]="MODERATE",t[t.MINOR=4]="MINOR",t[t.UNKNOWN5=5]="UNKNOWN5";}(z||(z={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.UNKNOWN7=7]="UNKNOWN7",t[t.UNKNOWN8=8]="UNKNOWN8",t[t.UNKNOWN9=9]="UNKNOWN9",t[t.STATEMENT=10]="STATEMENT",t[t.WARNING=11]="WARNING",t[t.ADVISORY=12]="ADVISORY",t[t.UNKNOWN13=13]="UNKNOWN13";}(Z||(Z={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.IMMEDIATE=1]="IMMEDIATE",t[t.EXPECTED=2]="EXPECTED",t[t.FUTURE=3]="FUTURE",t[t.PAST=4]="PAST",t[t.UNKNOWN5=5]="UNKNOWN5";}(k||(k={}));let Q=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsWeatherAlertSummary(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsWeatherAlertSummary(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}id(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new e).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}areaId(t){const s=this.bb.__offset(this.bb_pos,6);return s?this.bb.__string(this.bb_pos+s,t):null}areaName(t){const s=this.bb.__offset(this.bb_pos,8);return s?this.bb.__string(this.bb_pos+s,t):null}attributionUrl(t){const s=this.bb.__offset(this.bb_pos,10);return s?this.bb.__string(this.bb_pos+s,t):null}countryCode(t){const s=this.bb.__offset(this.bb_pos,12);return s?this.bb.__string(this.bb_pos+s,t):null}description(t){const s=this.bb.__offset(this.bb_pos,14);return s?this.bb.__string(this.bb_pos+s,t):null}token(t){const s=this.bb.__offset(this.bb_pos,16);return s?this.bb.__string(this.bb_pos+s,t):null}effectiveTime(){const t=this.bb.__offset(this.bb_pos,18);return t?this.bb.readUint32(this.bb_pos+t):0}expireTime(){const t=this.bb.__offset(this.bb_pos,20);return t?this.bb.readUint32(this.bb_pos+t):0}issuedTime(){const t=this.bb.__offset(this.bb_pos,22);return t?this.bb.readUint32(this.bb_pos+t):0}eventOnsetTime(){const t=this.bb.__offset(this.bb_pos,24);return t?this.bb.readUint32(this.bb_pos+t):0}eventEndTime(){const t=this.bb.__offset(this.bb_pos,26);return t?this.bb.readUint32(this.bb_pos+t):0}detailsUrl(t){const s=this.bb.__offset(this.bb_pos,28);return s?this.bb.__string(this.bb_pos+s,t):null}phenomenon(t){const s=this.bb.__offset(this.bb_pos,30);return s?this.bb.__string(this.bb_pos+s,t):null}severity(){const t=this.bb.__offset(this.bb_pos,32);return t?this.bb.readInt8(this.bb_pos+t):z.UNKNOWN}significance(){const t=this.bb.__offset(this.bb_pos,34);return t?this.bb.readInt8(this.bb_pos+t):Z.UNKNOWN}source(t){const s=this.bb.__offset(this.bb_pos,36);return s?this.bb.__string(this.bb_pos+s,t):null}eventSource(t){const s=this.bb.__offset(this.bb_pos,38);return s?this.bb.__string(this.bb_pos+s,t):null}urgency(){const t=this.bb.__offset(this.bb_pos,40);return t?this.bb.readInt8(this.bb_pos+t):k.UNKNOWN}certainty(){const t=this.bb.__offset(this.bb_pos,42);return t?this.bb.readInt8(this.bb_pos+t):l.UNKNOWN}importance(){const t=this.bb.__offset(this.bb_pos,44);return t?this.bb.readInt8(this.bb_pos+t):V.NORMAL}responses(t){const s=this.bb.__offset(this.bb_pos,46);return s?this.bb.readInt8(this.bb.__vector(this.bb_pos+s)+t):0}responsesLength(){const t=this.bb.__offset(this.bb_pos,46);return t?this.bb.__vector_len(this.bb_pos+t):0}responsesArray(){const t=this.bb.__offset(this.bb_pos,46);return t?new Int8Array(this.bb.bytes().buffer,this.bb.bytes().byteOffset+this.bb.__vector(this.bb_pos+t),this.bb.__vector_len(this.bb_pos+t)):null}unknown23(){const t=this.bb.__offset(this.bb_pos,48);return t?this.bb.readInt8(this.bb_pos+t):0}unknown24(){const t=this.bb.__offset(this.bb_pos,50);return t?this.bb.readInt8(this.bb_pos+t):0}unknown25(){const t=this.bb.__offset(this.bb_pos,52);return t?this.bb.readInt8(this.bb_pos+t):0}unknown26(){const t=this.bb.__offset(this.bb_pos,54);return t?this.bb.readInt8(this.bb_pos+t):0}static startWeatherAlertSummary(t){t.startObject(26);}static addId(t,s){t.addFieldOffset(0,s,0);}static addAreaId(t,s){t.addFieldOffset(1,s,0);}static addAreaName(t,s){t.addFieldOffset(2,s,0);}static addAttributionUrl(t,s){t.addFieldOffset(3,s,0);}static addCountryCode(t,s){t.addFieldOffset(4,s,0);}static addDescription(t,s){t.addFieldOffset(5,s,0);}static addToken(t,s){t.addFieldOffset(6,s,0);}static addEffectiveTime(t,s){t.addFieldInt32(7,s,0);}static addExpireTime(t,s){t.addFieldInt32(8,s,0);}static addIssuedTime(t,s){t.addFieldInt32(9,s,0);}static addEventOnsetTime(t,s){t.addFieldInt32(10,s,0);}static addEventEndTime(t,s){t.addFieldInt32(11,s,0);}static addDetailsUrl(t,s){t.addFieldOffset(12,s,0);}static addPhenomenon(t,s){t.addFieldOffset(13,s,0);}static addSeverity(t,s){t.addFieldInt8(14,s,z.UNKNOWN);}static addSignificance(t,s){t.addFieldInt8(15,s,Z.UNKNOWN);}static addSource(t,s){t.addFieldOffset(16,s,0);}static addEventSource(t,s){t.addFieldOffset(17,s,0);}static addUrgency(t,s){t.addFieldInt8(18,s,k.UNKNOWN);}static addCertainty(t,s){t.addFieldInt8(19,s,l.UNKNOWN);}static addImportance(t,s){t.addFieldInt8(20,s,V.NORMAL);}static addResponses(t,s){t.addFieldOffset(21,s,0);}static createResponsesVector(t,s){t.startVector(1,s.length,1);for(let i=s.length-1;i>=0;i--)t.addInt8(s[i]);return t.endVector()}static startResponsesVector(t,s){t.startVector(1,s,1);}static addUnknown23(t,s){t.addFieldInt8(22,s,0);}static addUnknown24(t,s){t.addFieldInt8(23,s,0);}static addUnknown25(t,s){t.addFieldInt8(24,s,0);}static addUnknown26(t,s){t.addFieldInt8(25,s,0);}static endWeatherAlertSummary(t){return t.endObject()}static createWeatherAlertSummary(s,i,e,o,n,a,b,r,d,_,h,c,p,l,u,f,N,O,I,F,A,m,U,W,P,T,y){return t.startWeatherAlertSummary(s),t.addId(s,i),t.addAreaId(s,e),t.addAreaName(s,o),t.addAttributionUrl(s,n),t.addCountryCode(s,a),t.addDescription(s,b),t.addToken(s,r),t.addEffectiveTime(s,d),t.addExpireTime(s,_),t.addIssuedTime(s,h),t.addEventOnsetTime(s,c),t.addEventEndTime(s,p),t.addDetailsUrl(s,l),t.addPhenomenon(s,u),t.addSeverity(s,f),t.addSignificance(s,N),t.addSource(s,O),t.addEventSource(s,I),t.addUrgency(s,F),t.addCertainty(s,A),t.addImportance(s,m),t.addResponses(s,U),t.addUnknown23(s,W),t.addUnknown24(s,P),t.addUnknown25(s,T),t.addUnknown26(s,y),t.endWeatherAlertSummary(s)}},X=class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsWeatherAlertCollectionData(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsWeatherAlertCollectionData(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}detailsUrl(t){const s=this.bb.__offset(this.bb_pos,6);return s?this.bb.__string(this.bb_pos+s,t):null}alerts(t,s){const i=this.bb.__offset(this.bb_pos,8);return i?(s||new Q).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}alertsLength(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.__vector_len(this.bb_pos+t):0}static startWeatherAlertCollectionData(t){t.startObject(3);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addDetailsUrl(t,s){t.addFieldOffset(1,s,0);}static addAlerts(t,s){t.addFieldOffset(2,s,0);}static createAlertsVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startAlertsVector(t,s){t.startVector(4,s,4);}static endWeatherAlertCollectionData(t){return t.endObject()}static createWeatherAlertCollectionData(s,i,e,o){return t.startWeatherAlertCollectionData(s),t.addMetadata(s,i),t.addDetailsUrl(s,e),t.addAlerts(s,o),t.endWeatherAlertCollectionData(s)}};class q{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsWeatherChanges(t,s){return (s||new q).__init(t.readInt32(t.position())+t.position(),t)}static getSizePrefixedRootAsWeatherChanges(t,s){return t.setPosition(t.position()+4),(s||new q).__init(t.readInt32(t.position())+t.position(),t)}metadata(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new b).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}forecastStart(){const t=this.bb.__offset(this.bb_pos,6);return t?this.bb.readUint32(this.bb_pos+t):0}forecastEnd(){const t=this.bb.__offset(this.bb_pos,8);return t?this.bb.readUint32(this.bb_pos+t):0}changes(t,s){const i=this.bb.__offset(this.bb_pos,10);return i?(s||new A).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos+i)+4*t),this.bb):null}changesLength(){const t=this.bb.__offset(this.bb_pos,10);return t?this.bb.__vector_len(this.bb_pos+t):0}static startWeatherChanges(t){t.startObject(4);}static addMetadata(t,s){t.addFieldOffset(0,s,0);}static addForecastStart(t,s){t.addFieldInt32(1,s,0);}static addForecastEnd(t,s){t.addFieldInt32(2,s,0);}static addChanges(t,s){t.addFieldOffset(3,s,0);}static createChangesVector(t,s){t.startVector(4,s.length,4);for(let i=s.length-1;i>=0;i--)t.addOffset(s[i]);return t.endVector()}static startChangesVector(t,s){t.startVector(4,s,4);}static endWeatherChanges(t){return t.endObject()}static createWeatherChanges(t,s,i,e,o){return q.startWeatherChanges(t),q.addMetadata(t,s),q.addForecastStart(t,i),q.addForecastEnd(t,e),q.addChanges(t,o),q.endWeatherChanges(t)}}var J,$,tt,st,it,et,ot,nt,at,bt,rt,dt,_t,ht=Object.freeze({__proto__:null,AirQuality:h,Articles:c,get BaselineType(){return p},get Certainty(){return l},Change:A,Common:a,Comparison:m,get ComparisonTrend(){return o},get ComparisonType(){return f},Condition:W,get ConditionType(){return O},CurrentWeatherData:E,DailyForecastData:R,DayPartForecast:g,DayWeatherConditions:K,get Deviation(){return N},get Direction(){return u},ForecastPeriodSummary:L,ForecastPeriodic:w,get ForecastToken(){return I},HistoricalComparison:v,HourWeatherConditions:M,HourlyForecastData:D,get ImportanceType(){return V},LocationInfo:H,Metadata:b,get MoonPhase(){return S},News:j,NextHourForecastData:G,Parameter:U,get ParameterType(){return F},Placement:B,get PlacementType(){return x},Pollutant:_,get PollutantType(){return r},PrecipitationAmountByType:C,get PrecipitationType(){return P},get PressureTrend(){return T},get ResponseType(){return Y},get Severity(){return z},get SignificanceType(){return Z},get SourceType(){return n},get UnitType(){return d},get Urgency(){return k},Weather:class t{bb=null;bb_pos=0;__init(t,s){return this.bb_pos=t,this.bb=s,this}static getRootAsWeather(s,i){return (i||new t).__init(s.readInt32(s.position())+s.position(),s)}static getSizePrefixedRootAsWeather(s,i){return s.setPosition(s.position()+4),(i||new t).__init(s.readInt32(s.position())+s.position(),s)}airQuality(t){const s=this.bb.__offset(this.bb_pos,4);return s?(t||new h).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}currentWeather(t){const s=this.bb.__offset(this.bb_pos,6);return s?(t||new E).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}forecastDaily(t){const s=this.bb.__offset(this.bb_pos,8);return s?(t||new R).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}forecastHourly(t){const s=this.bb.__offset(this.bb_pos,10);return s?(t||new D).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}forecastNextHour(t){const s=this.bb.__offset(this.bb_pos,12);return s?(t||new G).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}news(t){const s=this.bb.__offset(this.bb_pos,14);return s?(t||new j).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}weatherAlerts(t){const s=this.bb.__offset(this.bb_pos,16);return s?(t||new X).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}weatherChanges(t){const s=this.bb.__offset(this.bb_pos,18);return s?(t||new q).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}historicalComparisons(t){const s=this.bb.__offset(this.bb_pos,20);return s?(t||new v).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}locationInfo(t){const s=this.bb.__offset(this.bb_pos,22);return s?(t||new H).__init(this.bb.__indirect(this.bb_pos+s),this.bb):null}static startWeather(t){t.startObject(10);}static addAirQuality(t,s){t.addFieldOffset(0,s,0);}static addCurrentWeather(t,s){t.addFieldOffset(1,s,0);}static addForecastDaily(t,s){t.addFieldOffset(2,s,0);}static addForecastHourly(t,s){t.addFieldOffset(3,s,0);}static addForecastNextHour(t,s){t.addFieldOffset(4,s,0);}static addNews(t,s){t.addFieldOffset(5,s,0);}static addWeatherAlerts(t,s){t.addFieldOffset(6,s,0);}static addWeatherChanges(t,s){t.addFieldOffset(7,s,0);}static addHistoricalComparisons(t,s){t.addFieldOffset(8,s,0);}static addLocationInfo(t,s){t.addFieldOffset(9,s,0);}static endWeather(t){return t.endObject()}static finishWeatherBuffer(t,s){t.finish(s);}static finishSizePrefixedWeatherBuffer(t,s){t.finish(s,void 0,true);}},WeatherAlertCollectionData:X,WeatherAlertSummary:Q,WeatherChanges:q,get WeatherCondition(){return y}});!function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.WORSE=2]="WORSE",t[t.SAME=3]="SAME",t[t.BETTER=4]="BETTER";}(J||(J={})),function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.MODELED=2]="MODELED",t[t.STATION=3]="STATION";}($||($={}));!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.NOT_AVAILABLE=1]="NOT_AVAILABLE",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.NO=5]="NO",t[t.NO2=6]="NO2",t[t.NOX=7]="NOX",t[t.OZONE=8]="OZONE",t[t.PM2_5=9]="PM2_5",t[t.SO2=10]="SO2",t[t.PM10=11]="PM10",t[t.CO=12]="CO";}(tt||(tt={})),function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.PARTS_PER_BILLION=1]="PARTS_PER_BILLION",t[t.MICROGRAMS_PER_CUBIC_METER=2]="MICROGRAMS_PER_CUBIC_METER";}(st||(st={}));!function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.LIKELY=2]="LIKELY";}(it||(it={})),function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.CLEAR=1]="CLEAR",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.RAIN=7]="RAIN",t[t.DRIZZLE=8]="DRIZZLE";}(et||(et={})),function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.CLEAR=1]="CLEAR",t[t.START=2]="START",t[t.STOP=3]="STOP",t[t.START_STOP=4]="START_STOP",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.CONSTANT=6]="CONSTANT";}(ot||(ot={})),function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.FIRST_AT=1]="FIRST_AT",t[t.SECOND_AT=2]="SECOND_AT";}(nt||(nt={}));!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.LOW=2]="LOW";}(at||(at={}));!function(t){t[t.UNKNOWN0=0]="UNKNOWN0",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.MONITOR=7]="MONITOR";}(bt||(bt={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.MODERATE=3]="MODERATE",t[t.MINOR=4]="MINOR";}(rt||(rt={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.UNKNOWN2=2]="UNKNOWN2",t[t.UNKNOWN3=3]="UNKNOWN3",t[t.UNKNOWN4=4]="UNKNOWN4",t[t.UNKNOWN5=5]="UNKNOWN5",t[t.UNKNOWN6=6]="UNKNOWN6",t[t.UNKNOWN7=7]="UNKNOWN7",t[t.UNKNOWN8=8]="UNKNOWN8",t[t.UNKNOWN9=9]="UNKNOWN9",t[t.STATEMENT=10]="STATEMENT";}(dt||(dt={})),function(t){t[t.UNKNOWN=0]="UNKNOWN",t[t.UNKNOWN1=1]="UNKNOWN1",t[t.EXPECTED=2]="EXPECTED";}(_t||(_t={}));
+
+class ForecastNextHour {
+    Name = "ForecastNextHour";
+    Version = "v1.6.5";
+    Author = "iRingo";
+
+    // iOS 27 hides NextHour data once its metadata is more than 15 minutes old.
+    static ExpirationInterval = 10 * 60;
+
+    static #Configs = {
+        Pollutants: {
+            co: "CO",
+            no: "NO",
+            no2: "NO2",
+            so2: "SO2",
+            o3: "OZONE",
+            nox: "NOX",
+            pm25: "PM2_5",
+            pm10: "PM10",
+            other: "NOT_AVAILABLE",
+        },
+        WeatherCondition: {
+            晴朗: "CLEAR",
+            雨夹雪: "SLEET",
+            小雨: "DRIZZLE",
+            下雨: "RAIN",
+            中雨: "RAIN",
+            大雨: "HEAVY_RAIN",
+            小雪: "FLURRIES",
+            下雪: "SNOW",
+            中雪: "SNOW",
+            大雪: "HEAVY_SNOW",
+            冰雹: "HAIL",
+        },
+        PrecipitationType: {
+            晴朗: "CLEAR",
+            雨夹雪: "SLEET",
+            rain: "RAIN",
+            雨: "RAIN",
+            snow: "SNOW",
+            雪: "SNOW",
+            冰雹: "HAIL",
+        },
+        Precipitation: {
+            Level: {
+                INVALID: -1,
+                NO: 0,
+                LIGHT: 1,
+                MODERATE: 2,
+                HEAVY: 3,
+                EXTREME: 4,
+            },
+            Range: {
+                /**
+                 * [降水强度 | 彩云天气 API]{@link https://docs.caiyunapp.com/weather-api/v2/v2.6/tables/precip.html}
+                 */
+                radar: {
+                    NO: [0, 0.031],
+                    LIGHT: [0.031, 0.25],
+                    MODERATE: [0.25, 0.35],
+                    HEAVY: [0.35, 0.48],
+                    EXTREME: [0.48, Number.MAX_VALUE],
+                },
+                mmph: {
+                    NO: [0, 0.08],
+                    LIGHT: [0.08, 3.44],
+                    MODERATE: [3.44, 11.33],
+                    HEAVY: [11.33, 51.3],
+                    EXTREME: [51.3, Number.MAX_VALUE],
+                },
+                precipitation: {
+                    NO: [0, 0.01],
+                    LIGHT: [0.01, 0.6],
+                    MODERATE: [0.6, 1.65],
+                    HEAVY: [1.65, 8.0],
+                    EXTREME: [8.0, 205.0],
+                },
+            },
+        },
+    };
+
+    static WeatherCondition(sentence) {
+        Console.info("☑️ WeatherCondition", `sentence: ${sentence}`);
+        // 完整短语排在通用词前，首次命中即可，避免“雨夹雪”又被“雪”覆盖。
+        const weatherCondition = Object.entries(ForecastNextHour.#Configs.WeatherCondition).find(([key]) => sentence.includes(key))?.[1] ?? "CLEAR";
+        Console.info(`✅ WeatherCondition: ${weatherCondition}`);
+        return weatherCondition;
+    }
+
+    // 根据描述文本猜测降水类型
+    static PrecipitationType(sentence) {
+        Console.info("☑️ PrecipitationType", `sentence: ${sentence}`);
+        const precipitationType = Object.entries(ForecastNextHour.#Configs.PrecipitationType).find(([key]) => sentence.includes(key))?.[1] ?? "CLEAR";
+        Console.info(`✅ PrecipitationType: ${precipitationType}`);
+        return precipitationType;
+    }
+
+    static Minute(minutes = [], description = "", units = "mmph") {
+        Console.info("☑️ Minute");
+        const precipitationType = ForecastNextHour.PrecipitationType(description);
+        // refer: https://docs.caiyunapp.com/weather-api/v2/v2.6/tables/precip.html
+
+        minutes = minutes.map((minute, i) => {
+            // 根据precipitationIntensity来猜测生成perceivedPrecipitationIntensity
+            minute.precipitationIntensity = Math.trunc(minute.precipitationIntensity * 1000000) / 1000000;
+            minute.perceivedPrecipitationIntensity = ForecastNextHour.#ConvertPrecipitationIntensity(minute.precipitationIntensity, units);
+            // 然后根据perceivedPrecipitationIntensity和precipitationChance来猜测生成condition和summaryCondition
+            if (minute.perceivedPrecipitationIntensity > 2) {
+                // 大雨，强烈感知
+                switch (precipitationType) {
+                    case "RAIN":
+                        minute.condition = "HEAVY_RAIN";
+                        break;
+                    case "SNOW":
+                        minute.condition = "HEAVY_SNOW";
+                        break;
+                    default:
+                        minute.condition = precipitationType;
+                        break;
+                }
+
+                minute.summaryCondition = precipitationType;
+                minute.clear = false;
+            } else if (minute.perceivedPrecipitationIntensity > 1) {
+                // 中雨，明显感知
+                switch (precipitationType) {
+                    case "RAIN":
+                        minute.condition = "RAIN";
+                        break;
+                    case "SNOW":
+                        minute.condition = "SNOW";
+                        break;
+                    default:
+                        minute.condition = precipitationType;
+                        break;
+                }
+                minute.summaryCondition = precipitationType;
+                minute.clear = false;
+            } else if (minute.perceivedPrecipitationIntensity > 0.1) {
+                // ❓ perceivedPrecipitationIntensity 小于 0.1, 苹果天气显示为无降水
+                // 小雨，可以感知到
+                switch (precipitationType) {
+                    case "RAIN":
+                        minute.condition = "DRIZZLE";
+                        break;
+                    case "SNOW":
+                        minute.condition = "FLURRIES";
+                        break;
+                    default:
+                        minute.condition = precipitationType;
+                        break;
+                }
+                minute.summaryCondition = precipitationType;
+                minute.clear = false;
+            } else if (minute.perceivedPrecipitationIntensity > 0) {
+                // 可能降水
+                switch (precipitationType) {
+                    case "RAIN":
+                        minute.condition = "POSSIBLE_DRIZZLE";
+                        break;
+                    case "SNOW":
+                        minute.condition = "POSSIBLE_FLURRIES";
+                        break;
+                    default:
+                        minute.condition = `POSSIBLE_${precipitationType}`;
+                        break;
+                }
+                minute.summaryCondition = precipitationType;
+                minute.clear = false;
+            } else {
+                minute.condition = "CLEAR";
+                minute.summaryCondition = "CLEAR";
+                minute.clear = true;
+            }
+            //Console.debug(`minutes[${i}]`, JSON.stringify(minute, null, 2));
+            return minute;
+        });
+
+        Console.info("✅ Minute");
+        return minutes;
+    }
+
+    static Summary(minutes = []) {
+        Console.info("☑️ Summary");
+        const Summaries = [];
+        const Summary = {
+            condition: "CLEAR",
+            startTime: 0,
+            precipitationChance: 0,
+            precipitationIntensity: 0,
+            //beginCondition: "",
+            //endCondition: "",
+            maxCondition: "",
+            clear: true,
+        };
+        const Length = Math.min(71, minutes.length);
+        for (let i = 0; i < Length; i++) {
+            const minute = minutes[i];
+            const previousMinute = minutes[i - 1];
+            switch (i) {
+                case 0: // 第一个
+                    Summary.startTime = minute.startTime;
+                    Summary.condition = minute.summaryCondition; // condition 只关心降水类型，不关心具体强弱描述
+                    Summary.precipitationChance = minute.precipitationChance;
+                    Summary.precipitationIntensity = minute.precipitationIntensity;
+                    //Summary.beginCondition = minute.condition;
+                    //Summary.endCondition = "";
+                    Summary.maxCondition = minute.condition;
+                    Summary.clear = minute.clear;
+                    break;
+                case Length - 1: // 最后一个
+                    Summary.endTime = 0; // ⚠️空值必须写零！
+                    //Summary.endCondition = minute.condition;
+                    Summary.clear = minute.clear;
+                    Console.debug(`Summaries[${i}]`, JSON.stringify({ ...minute, ...Summary }, null, 2));
+                    Summaries.push({ ...Summary });
+                    break;
+                default: // 中间
+                    if (minute.summaryCondition !== previousMinute.summaryCondition) {
+                        // 结束当前summary
+                        Summary.endTime = minute.startTime;
+                        //Summary.endCondition = previousMinute.condition;
+                        Console.debug(`Summaries[${i}]`, JSON.stringify({ ...previousMinute, ...Summary }, null, 2));
+                        Summaries.push({ ...Summary });
+
+                        // 开始新的summary
+                        Summary.startTime = minute.startTime;
+                        Summary.condition = minute.summaryCondition; // condition 只关心降水类型，不关心具体强弱描述
+                        Summary.precipitationChance = minute.precipitationChance;
+                        Summary.precipitationIntensity = minute.precipitationIntensity;
+                        //Summary.beginCondition = minute.condition;
+                        //Summary.endCondition = ""; // 重置
+                        Summary.maxCondition = minute.condition; // 重置
+                        Summary.clear = minute.clear;
+                    } else {
+                        // 条件相同，更新最大值
+                        Summary.precipitationChance = Math.max(Summary.precipitationChance, minute.precipitationChance);
+                        Summary.precipitationIntensity = Math.max(Summary.precipitationIntensity, minute.precipitationIntensity);
+                        if (Summary.precipitationIntensity === minute.precipitationIntensity) Summary.maxCondition = minute.condition;
+                    }
+                    break;
+            }
+        }
+        Console.debug(`Summaries: ${JSON.stringify(Summaries, null, 2)}`);
+        Console.info("✅ Summary");
+        return Summaries;
+    }
+
+    static Condition(summaries = []) {
+        Console.info("☑️ Condition");
+        const Conditions = [];
+        if (!summaries.length) {
+            Console.debug(`Conditions: ${JSON.stringify(Conditions, null, 2)}`);
+            Console.info("✅ Condition");
+            return Conditions;
+        }
+
+        // Summary() emits alternating clear/precipitation runs. Preserve the
+        // previous empty result for unsupported direct callers that violate it.
+        for (let i = 1; i < summaries.length; i++) {
+            if (summaries[i - 1].clear === summaries[i].clear) {
+                Console.warn("Condition", `Adjacent summaries have the same clear state at indexes ${i - 1} and ${i}`);
+                Console.debug(`Conditions: ${JSON.stringify(Conditions, null, 2)}`);
+                Console.info("✅ Condition");
+                return Conditions;
+            }
+        }
+
+        for (let i = 0; i < summaries.length; i++) {
+            const current = summaries[i];
+            const next = summaries[i + 1];
+            const afterNext = summaries[i + 2];
+
+            if (current.clear) {
+                if (!next) {
+                    Conditions.push({
+                        beginCondition: current.maxCondition,
+                        endCondition: current.maxCondition,
+                        forecastToken: "CLEAR",
+                        parameters: [],
+                        startTime: current.startTime,
+                        endTime: 0,
+                    });
+                } else if (afterNext) {
+                    Conditions.push({
+                        beginCondition: next.maxCondition,
+                        endCondition: next.maxCondition,
+                        forecastToken: "START_STOP",
+                        parameters: [
+                            { date: next.startTime, type: "FIRST_AT" },
+                            { date: next.endTime, type: "SECOND_AT" },
+                        ],
+                        startTime: current.startTime,
+                        endTime: current.endTime,
+                    });
+                } else {
+                    Conditions.push({
+                        beginCondition: next.maxCondition,
+                        endCondition: next.maxCondition,
+                        forecastToken: "START",
+                        parameters: [{ date: next.startTime, type: "FIRST_AT" }],
+                        startTime: current.startTime,
+                        endTime: current.endTime,
+                    });
+                }
+            } else if (!next) {
+                Conditions.push({
+                    beginCondition: current.maxCondition,
+                    endCondition: current.maxCondition,
+                    forecastToken: "CONSTANT",
+                    parameters: [],
+                    startTime: current.startTime,
+                    endTime: 0,
+                });
+            } else if (afterNext) {
+                Conditions.push({
+                    beginCondition: current.maxCondition,
+                    endCondition: afterNext.maxCondition,
+                    forecastToken: "STOP_START",
+                    parameters: [
+                        { date: current.endTime, type: "FIRST_AT" },
+                        { date: afterNext.startTime, type: "SECOND_AT" },
+                    ],
+                    startTime: current.startTime,
+                    endTime: current.endTime,
+                });
+            } else {
+                Conditions.push({
+                    beginCondition: current.maxCondition,
+                    endCondition: current.maxCondition,
+                    forecastToken: "STOP",
+                    parameters: [{ date: current.endTime, type: "FIRST_AT" }],
+                    startTime: current.startTime,
+                    endTime: current.endTime,
+                });
+            }
+        }
+        // pinned WK2 schema 不认识的值会被 FlatBuffer 当成 0（CLEAR），因此整条条件必须跳过。
+        const safeConditions = Conditions.filter(condition => {
+            const supported = [condition.beginCondition, condition.endCondition].every(value => typeof ht.ConditionType[value] === "number");
+            if (!supported) Console.warn("Condition", `Unsupported ConditionType: ${condition.beginCondition}/${condition.endCondition}`);
+            return supported;
+        });
+        Console.debug(`Conditions: ${JSON.stringify(safeConditions, null, 2)}`);
+        Console.info("✅ Condition");
+        return safeConditions;
+    }
+
+    static #ConvertPrecipitationIntensity(precipitationIntensity, units = "mmph") {
+        //Console.info("☑️ ConvertPrecipitationIntensity");
+        //Console.debug(`precipitationIntensity: ${precipitationIntensity}`, `units: ${units}`);
+        const Range = ForecastNextHour.#Configs.Precipitation.Range[units];
+        let perceivedPrecipitationIntensity = 0;
+
+        if (precipitationIntensity === 0) {
+            // 无降水
+            perceivedPrecipitationIntensity = 0;
+        } else if (precipitationIntensity > Range.NO[0] && precipitationIntensity <= Range.NO[1]) {
+            // 轻微降水，可能感知不到
+            perceivedPrecipitationIntensity = 0; // 轻微降水通常感知不到
+        } else if (precipitationIntensity > Range.LIGHT[0] && precipitationIntensity <= Range.LIGHT[1]) {
+            // 小雨，可以感知到
+            // 根据强度计算感知强度，在0-1之间
+            perceivedPrecipitationIntensity = Math.min(1, (precipitationIntensity - Range.LIGHT[0]) / (Range.LIGHT[1] - Range.LIGHT[0]));
+        } else if (precipitationIntensity > Range.MODERATE[0] && precipitationIntensity <= Range.MODERATE[1]) {
+            // 中雨，明显感知
+            // 根据强度计算感知强度，在1-2之间
+            perceivedPrecipitationIntensity = 1 + Math.min(1, (precipitationIntensity - Range.MODERATE[0]) / (Range.MODERATE[1] - Range.MODERATE[0]));
+        } else if (precipitationIntensity > Range.HEAVY[0]) {
+            // 大雨，强烈感知
+            // 根据强度计算感知强度，在2-3之间
+            perceivedPrecipitationIntensity = 2 + Math.min(1, (precipitationIntensity - Range.HEAVY[0]) / (Range.HEAVY[1] - Range.HEAVY[0]));
+        }
+
+        // 使用Math.trunc保留一位小数（性能最快，截断不四舍五入）
+        perceivedPrecipitationIntensity = Math.trunc(perceivedPrecipitationIntensity * 1000) / 1000;
+
+        //Console.debug(`perceivedPrecipitationIntensity: ${perceivedPrecipitationIntensity}`);
+        //Console.info(`✅ ConvertPrecipitationIntensity`);
+        return perceivedPrecipitationIntensity;
+    }
+}
+
+/**
+ * 根据数据源名称返回对应版本的标志；Apple、WeatherKit、空值及未知来源不补标志。
+ * Return the versioned logo for a provider; Apple, WeatherKit, empty, and unknown providers do not receive a logo.
+ * @param {string | null | undefined} providerName - 数据源名称。
+ * Provider name.
+ * @param {string} [version="v2"] - 标志资源版本。
+ * Logo asset version.
+ * @returns {string | undefined} 匹配的数据源标志地址。
+ * Matched provider logo URL.
+ */
+function providerNameToLogo(providerName, version = "v2") {
+    Console.info("☑️ providerNameToLogo", `providerName: ${providerName}`, `version: ${version}`);
+    const normalizedProviderName = providerName?.split("\n")?.[0]?.trim();
+    if (!normalizedProviderName || ["apple", "apple weather", "weatherkit"].includes(normalizedProviderName.toLowerCase())) {
+        Console.info("✅ providerNameToLogo");
+        return;
+    }
+    let providerLogo;
+    switch (normalizedProviderName) {
+        case "WAQI":
+        case "World Air Quality Index Project":
+            switch (version) {
+                case "v1":
+                    providerLogo = "https://waqi.info/images/logo.png";
+                    break;
+                case "v2":
+                    providerLogo = `https://raw.githubusercontent.com/NSRingo/WeatherKit/main/images/icon/${version}/WAQI.png`;
+                    break;
+            }
+            break;
+        case "ColofulClouds":
+        case "彩云天气":
+            providerLogo = `https://raw.githubusercontent.com/NSRingo/WeatherKit/main/images/icon/${version}/ColorfulClouds.png`;
+            break;
+        case "气象在线":
+        case "WeatherOL":
+            providerLogo = `https://raw.githubusercontent.com/NSRingo/WeatherKit/main/images/icon/${version}/WeatherOL.png`;
+            break;
+        case "QWeather":
+        case "和风天气":
+            providerLogo = `https://weatherkit.apple.com/assets/${version}/QWeather.png`;
+            break;
+        case "The Weather Channel":
+            providerLogo = `https://weatherkit.apple.com/assets/${version}/TWC.png`;
+            break;
+        case "BreezoMeter":
+            providerLogo = `https://weatherkit.apple.com/assets/${version}/BreezoMeter.png`;
+            break;
+    }
+    Console.info("✅ providerNameToLogo");
+    return providerLogo;
+}
+
+class ColorfulClouds {
+    constructor(parameters, token) {
+        this.Name = "ColorfulClouds";
+        this.Version = "4.3.0";
+        Console.log(`🟧 ${this.Name} v${this.Version}`);
+        this.endpoint = `https://api.caiyunapp.com/v2.6/${token}/${parameters.longitude},${parameters.latitude}`;
+        this.headers = { Referer: "https://caiyunapp.com/" };
+        this.token = token;
+        this.version = parameters.version;
+        this.language =
+            this.#Config.Language[
+                String(parameters.language ?? "")
+                    .trim()
+                    .toLowerCase()
+            ] ?? this.#Config.Language[""];
+        this.latitude = parameters.latitude;
+        this.longitude = parameters.longitude;
+        this.country = parameters.country;
+        this.weatherKitLanguage = String(parameters.weatherKitLanguage ?? parameters.language ?? "").trim() || "zh-CN";
+    }
+
+    #cache = {
+        alert: {},
+        realtime: {},
+    };
+
+    #Config = {
+        Language: {
+            "": "zh_CN",
+            ja: "ja",
+            "ja-jp": "ja",
+            en: "en_US",
+            "en-gb": "en_GB",
+            "en-au": "en_US",
+            "en-ca": "en_US",
+            "en-us": "en_US",
+            zh: "zh_CN",
+            "zh-cn": "zh_CN",
+            "zh-hans": "zh_CN",
+            "zh-hans-cn": "zh_CN",
+            "zh-sg": "zh_CN",
+            "zh-hant": "zh_TW",
+            "zh-hant-hk": "zh_TW",
+            "zh-hant-mo": "zh_TW",
+            "zh-hant-tw": "zh_TW",
+            "zh-hk": "zh_TW",
+            "zh-mo": "zh_TW",
+            "zh-tw": "zh_TW",
+        },
+        Pollutants: {
+            co: "CO",
+            no: "NO",
+            no2: "NO2",
+            so2: "SO2",
+            o3: "OZONE",
+            nox: "NOX",
+            pm25: "PM2_5",
+            pm10: "PM10",
+            other: "NOT_AVAILABLE",
+        },
+        WeatherAlert: {
+            Events: {
+                "01": "台风",
+                "02": "暴雨",
+                "03": "暴雪",
+                "04": "寒潮",
+                "05": "大风",
+                "06": "沙尘暴",
+                "07": "高温",
+                "08": "干旱",
+                "09": "雷电",
+                10: "冰雹",
+                11: "霜冻",
+                12: "大雾",
+                13: "霾",
+                14: "道路结冰",
+                15: "森林火险",
+                16: "雷雨大风",
+                17: "春季沙尘天气趋势预警",
+                18: "沙尘",
+            },
+            Severities: {
+                "00": "unknown",
+                "01": "minor",
+                "02": "moderate",
+                "03": "severe",
+                "04": "extreme",
+                1: "extreme",
+                2: "severe",
+                3: "moderate",
+                4: "minor",
+                5: "unknown",
+            },
+            Sources: {
+                1: "US National Weather Service",
+                2: "Environment and Climate Change Canada",
+            },
+            Certainties: {
+                1: "observed",
+                2: "likely",
+                3: "possible",
+                4: "unlikely",
+                5: "unknown",
+            },
+            Urgencies: {
+                1: "immediate",
+                2: "expected",
+                3: "future",
+                4: "past",
+                5: "unknown",
+            },
+            Categories: {
+                1: "Geo",
+                2: "Met",
+                3: "Safety",
+                4: "Security",
+                5: "Rescue",
+                6: "Fire",
+                7: "Health",
+                8: "Env",
+                9: "Transport",
+                10: "Infra",
+                11: "CBRNE",
+                12: "Other",
+            },
+        },
+        Availability: {
+            Minutely: [
+                "CN",
+                "HK",
+                "MO",
+                "TW",
+                "IT",
+                "LT",
+                "MT",
+                "FR",
+                "SK",
+                "NO",
+                "BY",
+                "IS",
+                "CZ",
+                "SI",
+                "DE",
+                "ES",
+                "UA",
+                "DK",
+                "PL",
+                "FI",
+                "SE",
+                "HR",
+                "RU",
+                "RO",
+                "PT",
+                "EE",
+                "RS",
+                "AT",
+                "GR",
+                "HU",
+                "FJ",
+                "GU",
+                "MH",
+                "NC",
+                "TR",
+                "BH",
+                "SA",
+                "ID",
+                "IR",
+                "SG",
+                "OM",
+                "PH",
+                "IN",
+                "KH",
+                "CY",
+                "MY",
+                "VN",
+                "KW",
+                "TH",
+                "KR",
+                "KP",
+                "CA",
+                "BS",
+                "KY",
+                "MX",
+                "PA",
+                "MQ",
+                "CU",
+                "BM",
+                "PR",
+                "CW",
+                "GP",
+                "NI",
+                "BR",
+                "GF",
+                "CO",
+                "GY",
+                "PY",
+                "AR",
+            ],
+            AirQuality: ["CN", "HK", "MO"],
+        },
+    };
+
+    async #RealTime() {
+        Console.info("☑️ RealTime");
+
+        if (this.#cache.realtime?.result?.realtime?.status === "ok") {
+            Console.info("✅ RealTime", "Using cache");
+            return this.#cache.realtime;
+        }
+
+        const request = {
+            url: `${this.endpoint}/realtime?lang=${this.language}&alert=true`,
+            headers: this.headers,
+        };
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.status) {
+                case "ok": {
+                    switch (body?.result?.realtime?.status) {
+                        case "ok": {
+                            this.#cache.realtime = body;
+                            break;
+                        }
+                        case "error":
+                        case undefined:
+                            throw Error(JSON.stringify({ status: body?.result?.realtime?.status, reason: body?.result?.realtime }));
+                    }
+                    switch (body?.result?.alert?.status) {
+                        case "ok":
+                            this.#cache.alert = body.result.alert;
+                            break;
+                        case "error":
+                        case undefined:
+                            break;
+                    }
+                    Console.info("✅ RealTime");
+                    return body;
+                }
+                case "error":
+                case "failed":
+                case undefined:
+                    throw Error(JSON.stringify(body ?? {}));
+            }
+        } catch (error) {
+            Console.error(`RealTime: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(airQuality, null, 2)}`);
+            Console.info("✅ RealTime");
+        }
+        return {};
+    }
+
+    async Minutely() {
+        Console.info("☑️ Minutely");
+        // 判断可用性：当前数据源不支持这个国家/地区
+        if (!this.#Config.Availability.Minutely.includes(this.country)) {
+            Console.warn("Minutely", `Unsupported country: ${this.country}`);
+            return;
+        }
+
+        const request = {
+            url: `${this.endpoint}/minutely?unit=metric:v2&lang=${this.language}`,
+            headers: this.headers,
+        };
+        let forecastNextHour;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.status) {
+                case "ok":
+                    switch (body?.result?.minutely?.status) {
+                        case "ok": {
+                            const timeStamp = (Date.now() / 1000) | 0;
+                            const metadata = {
+                                attributionUrl: "https://www.caiyunapp.com/h5",
+                                expireTime: timeStamp + ForecastNextHour.ExpirationInterval,
+                                language: "zh-CN", // `${this.language}-${this.country}`, // body?.lang,
+                                latitude: body?.location?.[0],
+                                longitude: body?.location?.[1],
+                                providerLogo: providerNameToLogo("彩云天气", this.version),
+                                providerName: "彩云天气",
+                                readTime: timeStamp,
+                                reportedTime: body?.server_time,
+                                temporarilyUnavailable: false,
+                                sourceType: "MODELED",
+                            };
+                            body.result.minutely.probability = body.result.minutely.probability.map(probability => Math.round(probability * 100));
+                            let minuteStemp = new Date(body?.server_time * 1000).setSeconds(0, 0);
+                            minuteStemp = minuteStemp.valueOf() / 1000 - 60;
+                            forecastNextHour = {
+                                metadata: metadata,
+                                condition: [],
+                                forecastEnd: 0,
+                                forecastStart: minuteStemp,
+                                minutes: body?.result?.minutely?.precipitation_2h?.map((precipitationIntensity, index) => {
+                                    const minute = {
+                                        perceivedPrecipitationIntensity: 0,
+                                        precipitationChance: 0,
+                                        precipitationIntensity: precipitationIntensity,
+                                        startTime: minuteStemp + 60 * index,
+                                    };
+                                    if (index < 30) minute.precipitationChance = body?.result?.minutely?.probability?.[0];
+                                    else if (index < 60) minute.precipitationChance = body?.result?.minutely?.probability?.[1];
+                                    else if (index < 90) minute.precipitationChance = body?.result?.minutely?.probability?.[2];
+                                    else minute.precipitationChance = body?.result?.minutely?.probability?.[3];
+                                    return minute;
+                                }),
+                                summary: [],
+                            };
+                            forecastNextHour.minutes.length = Math.min(85, forecastNextHour.minutes.length);
+                            forecastNextHour.forecastEnd = minuteStemp + 60 * forecastNextHour.minutes.length;
+                            forecastNextHour.minutes = ForecastNextHour.Minute(forecastNextHour.minutes, body?.result?.minutely?.description, "mmph");
+                            forecastNextHour.summary = ForecastNextHour.Summary(forecastNextHour.minutes);
+                            forecastNextHour.condition = ForecastNextHour.Condition(forecastNextHour.summary);
+                            break;
+                        }
+                        case "error":
+                        case "failed":
+                        case undefined:
+                            throw Error(JSON.stringify({ status: body?.result?.minutely?.status, reason: body?.result?.minutely }));
+                    }
+                    break;
+                case "error":
+                case "failed":
+                case undefined:
+                    throw Error(JSON.stringify(body ?? {}));
+            }
+        } catch (error) {
+            Console.error(`Minutely: ${error}`);
+        } finally {
+            //Console.debug(`forecastNextHour: ${JSON.stringify(forecastNextHour, null, 2)}`);
+            Console.info("✅ Minutely");
+        }
+        return forecastNextHour;
+    }
+
+    /**
+     * 从彩云实况缓存读取 v2.6 预警，并标准化为 WeatherAlerts.mergeAlerts 可消费的来源结构。
+     * Read Caiyun v2.6 alerts from the realtime cache and normalize them for WeatherAlerts.mergeAlerts.
+     * @link https://docs.caiyunapp.com/weather-api/v2/v2.6/5-alert.html
+     * @returns {Promise<{metadata: object, detailsUrl: string, alerts: Array<object>, areaName: string, source: string}>} WeatherKit 顶级预警对象 / Top-level WeatherKit alert object.
+     */
+    async WeatherAlert() {
+        Console.info("☑️ WeatherAlert");
+        const failedWeatherAlerts = {
+            metadata: {
+                attributionUrl: "https://www.caiyunapp.com/h5",
+            },
+            detailsUrl: `https://weatherkit.apple.com/alertDetails/index.html?ids=${this.latitude},${this.longitude}&lang=${encodeURIComponent(this.weatherKitLanguage)}&party=ColorfulClouds`,
+            alerts: [],
+            areaName: "",
+            source: "彩云天气",
+        };
+        let weatherAlerts = failedWeatherAlerts;
+        try {
+            await this.#RealTime();
+            if (!Array.isArray(this.#cache.alert?.content)) throw Error(JSON.stringify(this.#cache.alert));
+            weatherAlerts = { ...failedWeatherAlerts, ...this.#CreateWeatherAlerts(this.#cache.alert) };
+        } catch (error) {
+            Console.error(`WeatherAlert: ${error}`);
+        } finally {
+            Console.info("✅ WeatherAlert");
+        }
+        return weatherAlerts;
+    }
+
+    /**
+     * 拉取彩云 v3 CAP 预警，并标准化为 WeatherAlerts.mergeAlerts 可消费的来源结构。
+     * Fetch Caiyun v3 CAP alerts and normalize them for WeatherAlerts.mergeAlerts.
+     * @returns {Promise<{metadata: object, detailsUrl: string, alerts: Array<object>, areaName: string, source: string}>} WeatherKit 顶级预警对象 / Top-level WeatherKit alert object.
+     */
+    async WeatherAlertV3CAP() {
+        Console.info("☑️ WeatherAlertV3CAP");
+        const failedWeatherAlerts = {
+            metadata: {
+                attributionUrl: "https://www.caiyunapp.com/h5",
+            },
+            detailsUrl: `https://weatherkit.apple.com/alertDetails/index.html?ids=${this.latitude},${this.longitude}&lang=${encodeURIComponent(this.weatherKitLanguage)}&party=ColorfulClouds`,
+            alerts: [],
+            areaName: "",
+            source: "彩云天气",
+        };
+        const url = new URL("https://singer.caiyunhub.com/v3/cap_alert/location");
+        url.searchParams.set("token", this.token);
+        url.searchParams.set("longitude", this.longitude);
+        url.searchParams.set("latitude", this.latitude);
+        url.searchParams.set("language", this.language);
+        const request = {
+            url: url.toString(),
+            headers: this.headers,
+        };
+        let weatherAlerts = failedWeatherAlerts;
+        try {
+            const response = await fetch(request);
+            const body = JSON.parse(response?.body ?? "{}");
+            if (response?.ok === false) {
+                Console.warn("WeatherAlertV3CAP", `upstreamStatus: ${response.statusCode ?? response.status}`);
+                return failedWeatherAlerts;
+            }
+            if (!Array.isArray(body?.alerts)) throw Error(JSON.stringify(body?.error ?? body?.reason ?? body?.code ?? body));
+            weatherAlerts = { ...failedWeatherAlerts, ...this.#CreateWeatherAlertsV3CAP(body) };
+        } catch (error) {
+            Console.error(`WeatherAlertV3CAP: ${error}`);
+        } finally {
+            Console.info("✅ WeatherAlertV3CAP");
+        }
+        return weatherAlerts;
+    }
+
+    async #Hourly(hourlysteps = 273, begin = undefined) {
+        Console.info("☑️ Hourly", `hourlysteps: ${hourlysteps}`, `begin: ${begin}`);
+        const request = {
+            url: `${this.endpoint}/hourly?hourlysteps=${hourlysteps}&lang=${this.language}`,
+            headers: this.headers,
+        };
+        if (begin) request.url += `&begin=${begin}`;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.status) {
+                case "ok":
+                    switch (body?.result?.hourly?.status) {
+                        case "ok": {
+                            Console.info("✅ Hourly");
+                            return body;
+                        }
+                        case "error":
+                        case undefined:
+                            throw Error(JSON.stringify({ status: body?.result?.hourly?.status, reason: body?.result?.hourly }));
+                    }
+                    break;
+                case "error":
+                case "failed":
+                case undefined:
+                    throw Error(JSON.stringify(body ?? {}));
+            }
+        } catch (error) {
+            Console.error(`Hourly: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(this.airQuality, null, 2)}`);
+            Console.info("✅ Hourly");
+        }
+        return {};
+    }
+
+    async Daily(dailysteps = 10, begin = undefined) {
+        Console.info("☑️ Daily");
+        const request = {
+            url: `${this.endpoint}/daily?dailysteps=${dailysteps}&lang=${this.language}`,
+            headers: this.headers,
+        };
+        if (begin) request.url += `&begin=${begin}`;
+        let forecastDaily;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.status) {
+                case "ok":
+                    switch (body?.result?.daily?.status) {
+                        case "ok": {
+                            const timeStamp = (Date.now() / 1000) | 0;
+                            const metadata = {
+                                attributionUrl: "https://www.caiyunapp.com/h5",
+                                expireTime: timeStamp + 60 * 60,
+                                language: "zh-CN", // `${this.language}-${this.country}`,
+                                latitude: body?.location?.[0],
+                                longitude: body?.location?.[1],
+                                providerLogo: providerNameToLogo("彩云天气", this.version),
+                                providerName: "彩云天气",
+                                readTime: timeStamp,
+                                reportedTime: body?.server_time,
+                                temporarilyUnavailable: false,
+                                sourceType: "STATION",
+                            };
+                            forecastDaily = {
+                                metadata: metadata,
+                                days: [],
+                            };
+                            for (let i = 0; i < dailysteps; i++) {
+                                const timeStamp = (new Date(body?.result?.daily?.skycon?.[i]?.date).getTime() / 1000) | 0;
+                                forecastDaily.days.push({
+                                    forecastStart: timeStamp,
+                                    forecastEnd: timeStamp + 24 * 3600, // 24 hours
+                                    ...Weather.ConvertWeatherCodeField(body?.result?.daily?.skycon?.[i]?.value),
+                                    humidityMax: Math.round(body?.result?.daily?.humidity?.[i]?.max * 100),
+                                    humidityMin: Math.round(body?.result?.daily?.humidity?.[i]?.min * 100),
+                                    // maxUvIndex: Weather.ConvertDSWRF(body?.result?.daily?.dswrf?.[i]?.max), // ConvertDSWRF 转换不准确
+                                    // moonPhase: "", // Not given
+                                    // moonrise: body?.result?.daily?.astro?.[i].sunset.time, // Not given
+                                    // moonset: body?.result?.daily?.astro?.[i].sunrise.time, // Not given
+                                    // Caiyun `avg` is an average rate (mm/h), not WeatherKit's accumulated amount (mm).
+                                    // Leave both amount fields absent so the merge keeps Apple's paired scalar/by-type totals.
+                                    // precipitationAmountByType: [], // Not given
+                                    precipitationChance: body?.result?.daily?.precipitation?.[i]?.probability,
+                                    // precipitationType: "", // Not given
+                                    // snowfallAmount: 0, // Not given
+                                    // solarMidnight: 0, // Not given
+                                    // solarNoon: 0, // Not given
+                                    //sunrise: body?.result?.daily?.astro?.[i].sunrise.time, // 未转换
+                                    // sunriseAstronomical: 0, // Not given
+                                    // sunriseCivil: 0, // Not given
+                                    // sunriseNautical: 0, // Not given
+                                    //sunset: body?.result?.daily?.astro?.[i].sunset.time, // 未转换
+                                    // sunsetAstronomical: 0, // Not given
+                                    // sunsetCivil: 0, // Not given
+                                    // sunsetNautical: 0, // Not given
+                                    temperatureMax: body?.result?.daily?.temperature?.[i]?.max,
+                                    // temperatureMaxTime: 0, // Not given
+                                    temperatureMin: body?.result?.daily?.temperature?.[i]?.min,
+                                    // temperatureMinTime: 0, // Not given
+                                    visibilityMax: body?.result?.daily?.visibility?.[i]?.max * 1000,
+                                    visibilityMin: body?.result?.daily?.visibility?.[i]?.min * 1000,
+                                    // windGustSpeedMax: 0, // Not given
+                                    windSpeedAvg: body?.result?.daily?.wind?.[i]?.avg?.speed,
+                                    windSpeedMax: body?.result?.daily?.wind?.[i]?.max?.speed,
+                                    daytimeForecast: {
+                                        forecastStart: timeStamp + 8 * 3600, // 8 hours
+                                        forecastEnd: timeStamp + 8 * 3600 + 12 * 3600, // 8 + 12 hours
+                                        cloudCover: body?.result?.daily?.cloudrate?.[i]?.avg,
+                                        // cloudCoverHighAltPct: 0, // Not given
+                                        // cloudCoverLowAltPct: 0, // Not given
+                                        // cloudCoverMidAltPct: 0, // Not given
+                                        ...Weather.ConvertWeatherCodeField(body?.result?.daily?.skycon_08h_20h?.[i]?.value),
+                                        // humidityMax: Math.round(body?.result?.daily?.humidity?.[i]?.max * 100), // Not given
+                                        // humidityMin: Math.round(body?.result?.daily?.humidity?.[i]?.min * 100), // Not given
+                                        // Caiyun `avg` is mm/h and cannot replace WeatherKit's accumulated precipitation total.
+                                        // precipitationAmountByType: [], // Not given
+                                        precipitationChance: body?.result?.daily?.precipitation_08h_20h?.[i]?.probability,
+                                        // precipitationType: "", // Not given
+                                        // snowfallAmount: 0, // Not given
+                                        temperatureMax: body?.result?.daily?.temperature_08h_20h?.[i]?.max,
+                                        temperatureMin: body?.result?.daily?.temperature_08h_20h?.[i]?.min,
+                                        // visibilityMax: body?.result?.daily?.visibility?.[i]?.max * 1000, // Not given
+                                        // visibilityMin: body?.result?.daily?.visibility?.[i]?.min * 1000, // Not given
+                                        windDirection: body?.result?.daily?.wind_08h_20h?.[i]?.avg?.direction,
+                                        // windGustSpeedMax: 0, // Not given
+                                        windSpeed: body?.result?.daily?.wind_08h_20h?.[i]?.avg?.speed,
+                                        windSpeedMax: body?.result?.daily?.wind_08h_20h?.[i]?.max?.speed,
+                                    },
+                                    overnightForecast: {
+                                        forecastStart: timeStamp + 20 * 3600, // 20 hours
+                                        forecastEnd: timeStamp + 20 * 3600 + 12 * 3600, // 20 + 12 hours
+                                        cloudCover: body?.result?.daily?.cloudrate?.[i]?.avg,
+                                        // cloudCoverHighAltPct: 0, // Not given
+                                        // cloudCoverLowAltPct: 0, // Not given
+                                        // cloudCoverMidAltPct: 0, // Not given
+                                        ...Weather.ConvertWeatherCodeField(body?.result?.daily?.skycon_20h_32h?.[i]?.value),
+                                        // humidityMax: Math.round(body?.result?.daily?.humidity?.[i]?.max * 100), // Not given
+                                        // humidityMin: Math.round(body?.result?.daily?.humidity?.[i]?.min * 100), // Not given
+                                        // Caiyun `avg` is mm/h and cannot replace WeatherKit's accumulated precipitation total.
+                                        // precipitationAmountByType: [], // Not given
+                                        precipitationChance: body?.result?.daily?.precipitation_20h_32h?.[i]?.probability,
+                                        // precipitationType: "", // Not given
+                                        // snowfallAmount: 0, // Not given
+                                        temperatureMax: body?.result?.daily?.temperature_20h_32h?.[i]?.max,
+                                        temperatureMin: body?.result?.daily?.temperature_20h_32h?.[i]?.min,
+                                        // visibilityMax: body?.result?.daily?.visibility?.[i]?.max * 1000, // Not given
+                                        // visibilityMin: body?.result?.daily?.visibility?.[i]?.min * 1000, // Not given
+                                        windDirection: body?.result?.daily?.wind_20h_32h?.[i]?.avg?.direction,
+                                        // windGustSpeedMax: 0, // Not given
+                                        windSpeed: body?.result?.daily?.wind_20h_32h?.[i]?.avg?.speed,
+                                        windSpeedMax: body?.result?.daily?.wind_20h_32h?.[i]?.max?.speed,
+                                    },
+                                });
+                            }
+                            break;
+                        }
+                        case "error":
+                        case undefined:
+                            throw Error(JSON.stringify({ status: body?.result?.daily?.status, reason: body?.result?.daily }));
+                    }
+                    break;
+                case "error":
+                case "failed":
+                case undefined:
+                    throw Error(JSON.stringify(body ?? {}));
+            }
+        } catch (error) {
+            Console.error(`Daily: ${error}`);
+        } finally {
+            //Console.debug(`Daily: ${JSON.stringify(Daily, null, 2)}`);
+            Console.info("✅ Daily");
+        }
+        return forecastDaily;
+    }
+
+    #Metadata(reportedTime, location = [this.latitude, this.longitude], temporarilyUnavailable = false) {
+        const timeStamp = Math.trunc(Date.now() / 1000);
+        const [latitude, longitude] = location;
+        return {
+            longitude,
+            providerName: "彩云天气",
+            reportedTime: reportedTime ?? timeStamp,
+            latitude,
+            expireTime: timeStamp + 60 * 60,
+            attributionUrl: "https://www.caiyunapp.com/h5",
+            providerLogo: providerNameToLogo("彩云天气", this.version),
+            temporarilyUnavailable,
+            readTime: timeStamp,
+            sourceType: "MODELED",
+        };
+    }
+
+    /**
+     * 创建 WeatherKit 格式的污染物对象
+     * @link https://docs.caiyunapp.com/weather-api/v2/v2.6/1-realtime.html
+     * @param {Object} pollutantsObj - 污染物对象
+     * @param {String} [scale] - AQI 标准（如 HJ6332012）
+     * @returns {Object} 修复后的污染物对象
+     */
+    #CreatePollutants(pollutantsObj = {}, scale = "") {
+        Console.info("☑️ CreatePollutants");
+        const { mgm3, ugm3 } = AirQuality.Config.Units.WeatherKit;
+        const pollutants = Object.entries(pollutantsObj)
+            .map(([name, amount]) => {
+                switch (name) {
+                    case "co":
+                        return {
+                            amount: AirQuality.ConvertUnit(amount ?? -1, mgm3, ugm3),
+                            pollutantType: this.#Config.Pollutants[name],
+                            units: ugm3,
+                            index: scale === "HJ6332012" ? pollutantsObj.co_iaqi_chn : undefined,
+                        };
+                    case "no":
+                    case "no2":
+                    case "so2":
+                    case "o3":
+                    case "nox":
+                    case "pm25":
+                    case "pm10":
+                        return {
+                            amount: amount ?? -1,
+                            pollutantType: this.#Config.Pollutants[name],
+                            units: ugm3,
+                            index: scale === "HJ6332012" ? pollutantsObj[`${name}_iaqi_chn`] : undefined,
+                        };
+                    default:
+                        return null;
+                }
+            })
+            .filter(Boolean);
+
+        Console.info("✅ CreatePollutants");
+        return pollutants;
+    }
+
+    /**
+     * 获取当前空气质量并转换为 WeatherKit 风格结构。
+     *
+     * 逻辑概览：
+     * 1) 校验国家/地区是否支持空气质量；
+     * 2) 拉取 realtime 数据并做可用性检查；
+     * 3) 构建通用空气质量基础结构（metadata/pollutants）；
+     * 4) 按 useUsa 选择 US 或 CN 口径生成 index、categoryIndex 与 primaryPollutant。
+     *
+     * @param {boolean} [useUsa=true]
+     * 是否使用美国 AQI 口径。
+     * - true: 使用 `EPA_NowCast`（usa）；
+     * - false: 使用 `HJ6332012`（chn）。
+     *
+     * @param {boolean} [forcePrimaryPollutant=true]
+     * 在 CN 口径下是否强制展示主污染物。
+     * - true: 始终展示计算得到的主污染物；
+     * - false: 当主污染物 index <= 50 时返回 `NOT_AVAILABLE`。
+     *
+     * @returns {Promise<{
+     *   metadata: any,
+     *   pollutants: Array<{amount: number, pollutantType: string, units: string}>,
+     *   previousDayComparison: string,
+     *   categoryIndex?: number,
+     *   index?: number,
+     *   isSignificant?: boolean,
+     *   primaryPollutant?: string,
+     *   scale?: string
+     * }>}
+     * 成功时返回完整空气质量对象；不可用时返回 temporarilyUnavailable 的降级对象。
+     */
+    async CurrentAirQuality(useUsa = true, forcePrimaryPollutant = true) {
+        Console.info("☑️ CurrentAirQuality");
+        // 统一失败兜底对象，任一关键步骤失败时直接返回。
+        const failedAirQuality = {
+            metadata: this.#Metadata(undefined, undefined, true),
+            pollutants: [],
+            previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+        };
+
+        // 可用性判断：当前数据源不支持该国家/地区时直接返回兜底结果。
+        if (!this.#Config.Availability.AirQuality.includes(this.country)) {
+            Console.warn("CurrentAirQuality", `Unsupported country: ${this.country}`);
+            return failedAirQuality;
+        }
+
+        // 拉取实时数据（内部已带缓存）。
+        const realtime = await this.#RealTime();
+
+        // realtime 主体缺失，视为不可用。
+        if (!realtime.result) {
+            Console.error("CurrentAirQuality", "无法获取realtime数据");
+            return failedAirQuality;
+        }
+
+        // 彩云在不支持位置时 usa 描述为空字符串。
+        if (realtime.result.realtime.air_quality.description.usa === "") {
+            Console.error("CurrentAirQuality", `不支持的位置`);
+            return failedAirQuality;
+        }
+
+        // 构建与算法无关的基础空气质量结构。
+        const particularAirQuality = {
+            metadata: this.#Metadata(realtime.result.realtime.air_quality.obs_time, realtime.location),
+            pollutants: this.#CreatePollutants(realtime.result.realtime.air_quality, useUsa ? undefined : "HJ6332012"),
+            previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+        };
+
+        // US 口径：直接使用 usa AQI，并按 EPA_NowCast 分类。
+        if (useUsa) {
+            const scale = AirQuality.Config.Scales.EPA_NowCast;
+            const index = realtime.result.realtime.air_quality.aqi.usa;
+            const categoryIndex = AirQuality.CategoryIndex(index, scale.categories);
+
+            const airQuality = {
+                ...particularAirQuality,
+                categoryIndex,
+                index,
+                isSignificant: categoryIndex >= scale.categories.significantIndex,
+                primaryPollutant: "NOT_AVAILABLE",
+                scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+            };
+            Console.info("✅ CurrentAirQuality");
+            return airQuality;
+        } else {
+            // CN 口径：使用 chn AQI，并基于分污染物 IAQI 判定主污染物。
+            const scale = AirQuality.Config.Scales.HJ6332012;
+            const index = realtime.result.realtime.air_quality.aqi.chn;
+            const categoryIndex = AirQuality.CategoryIndex(index, scale.categories);
+
+            const primaryPollutant = AirQuality.PrimaryPollutant(particularAirQuality.pollutants, scale.categories);
+            // 当不强制展示主污染物且整体空气质量较好（<=50）时，主污染物置为不可用。
+            const isNotAvailable = !forcePrimaryPollutant && primaryPollutant.index <= 50;
+            if (isNotAvailable) {
+                Console.info("CurrentAirQuality", `Max index of pollutants ${primaryPollutant.pollutantType} = ${primaryPollutant.index} is <= 50, primaryPollutant will be set to NOT_AVAILABLE.`);
+            }
+
+            const airQuality = {
+                ...particularAirQuality,
+                categoryIndex,
+                index,
+                isSignificant: categoryIndex >= scale.categories.significantIndex,
+                primaryPollutant: isNotAvailable ? "NOT_AVAILABLE" : primaryPollutant.pollutantType,
+                scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+            };
+            Console.info("✅ CurrentAirQuality");
+            return airQuality;
+        }
+    }
+
+    async CurrentWeather() {
+        Console.info("☑️ CurrentWeather");
+        const realtime = await this.#RealTime();
+        if (!realtime.result) {
+            Console.error("CurrentWeather", "无法获取realtime数");
+            return {
+                metadata: this.#Metadata(undefined, undefined, true),
+            };
+        }
+
+        Console.info("✅ CurrentWeather");
+        return {
+            metadata: this.#Metadata(realtime.result.server_time, realtime.location),
+            cloudCover: Math.round(realtime.result.realtime.cloudrate * 100),
+            ...Weather.ConvertWeatherCodeField(realtime.result.realtime.skycon),
+            humidity: Math.round(realtime.result.realtime.humidity * 100),
+            // uvIndex: Weather.ConvertDSWRF(body?.result?.realtime?.dswrf), // ConvertDSWRF 转换不准确
+            perceivedPrecipitationIntensity: realtime.result.realtime.precipitation.local.intensity,
+            pressure: realtime.result.realtime.pressure / 100,
+            temperature: realtime.result.realtime.temperature,
+            temperatureApparent: realtime.result.realtime.apparent_temperature,
+            visibility: realtime.result.realtime.visibility * 1000,
+            windDirection: realtime.result.realtime.wind.direction,
+            windSpeed: realtime.result.realtime.wind.speed,
+        };
+    }
+
+    async YesterdayAirQuality(useUsa = true) {
+        Console.info("☑️ YesterdayAirQuality");
+
+        const yesterdayHourly = await this.#Hourly(1, Math.trunc((Date.now() - 864e5) / 1000));
+        const scale = useUsa ? AirQuality.Config.Scales.EPA_NowCast : AirQuality.Config.Scales.HJ6332012;
+        const particularAirQuality = {
+            previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+            pollutants: [],
+            primaryPollutant: "NOT_AVAILABLE",
+            scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+        };
+
+        if (!yesterdayHourly.result) {
+            Console.error("YesterdayAirQuality", "无法获取hourly数据");
+            return {
+                ...particularAirQuality,
+                categoryIndex: -1,
+                metadata: this.#Metadata(undefined, undefined, true),
+            };
+        }
+
+        const { usa, chn } = yesterdayHourly.result.hourly.air_quality.aqi[0].value;
+        if (usa === 0 && chn === 0) {
+            Console.warn("YesterdayAirQuality", "usa和chn的AQI值都为0，不支持的位置？");
+        }
+
+        const index = useUsa ? usa : chn;
+        const categoryIndex = AirQuality.CategoryIndex(index, scale.categories);
+        const isSignificant = categoryIndex >= scale.categories.significantIndex;
+        Console.debug(`index: ${index}`);
+
+        Console.info("✅ YesterdayAirQuality", `categoryIndex: ${categoryIndex}`);
+        return {
+            ...particularAirQuality,
+            index,
+            categoryIndex,
+            isSignificant,
+            metadata: this.#Metadata(yesterdayHourly.result.server_time, yesterdayHourly.location),
+        };
+    }
+
+    async ForecastHourly(hourlysteps, begin) {
+        Console.info("☑️ ForecastHourly");
+        const hourly = await this.#Hourly(hourlysteps, begin);
+        if (!hourly.result) {
+            Console.error("ForecastHourly", "Failed to get hourly data");
+            return {
+                metadata: this.#Metadata(undefined, undefined, true),
+            };
+        }
+
+        Console.info("✅ ForecastHourly");
+        return {
+            metadata: this.#Metadata(hourly.result.server_time, hourly.location),
+            hours: Array.from({ length: hourly.result.hourly.skycon.length }, (_, i) => ({
+                cloudCover: hourly.result.hourly.cloudrate[i].value,
+                // cloudCoverHighAltPct: 0, // Not given
+                // cloudCoverLowAltPct: 0, // Not given
+                // cloudCoverMidAltPct: 0, // Not given
+                ...Weather.ConvertWeatherCodeField(hourly.result.hourly.skycon[i].value),
+                // daylight: false, // Not given
+                forecastStart: (new Date(hourly.result.hourly.skycon[i].datetime).getTime() / 1000) | 0,
+                humidity: Math.round(hourly.result.hourly.humidity[i].value * 100),
+                // perceivedPrecipitationIntensity: "", // Not given
+                precipitationAmount: hourly.result.hourly.precipitation[i].value,
+                precipitationChance: hourly.result.hourly.precipitation[i].probability,
+                // precipitationIntensity: 0, // Not given
+                // precipitationType: "", // Not given
+                pressure: hourly.result.hourly.pressure[i].value / 100,
+                // pressureTrend: "", // Not given
+                // snowfallAmount: 0, // Not given
+                // snowfallIntensity: 0, // Not given
+                temperature: hourly.result.hourly.temperature[i].value,
+                temperatureApparent: hourly.result.hourly.apparent_temperature[i].value,
+                // temperatureDewPoint: 0, // Not given
+                // uvIndex: 0, // Not given
+                visibility: hourly.result.hourly.visibility[i].value * 1000,
+                windDirection: hourly.result.hourly.wind[i].direction,
+                // windGust: 0, // Not given
+                windSpeed: hourly.result.hourly.wind[i].speed,
+            })),
+        };
+    }
+
+    #CreateWeatherAlerts(body) {
+        Console.info("☑️ CreateWeatherAlerts");
+        const convertedAlerts = (Array.isArray(body?.content) ? body.content : [])
+            .map(alert => {
+                const issuedTime = this.#DateISOString(alert?.pubtimestamp);
+                if (!issuedTime) return undefined;
+                const code = String(alert?.code ?? "").trim();
+                const eventName = this.#Config.WeatherAlert.Events[code.slice(0, 2)] ?? "";
+                const source = String(alert?.source ?? "").trim();
+                return {
+                    ...(alert?.adcode ? { areaId: String(alert.adcode).trim() } : {}),
+                    ...(alert?.location ? { areaName: String(alert.location).trim() } : {}),
+                    certainty: "unknown",
+                    description: String(alert?.title ?? "").trim(),
+                    effectiveTime: issuedTime,
+                    eventOnsetTime: issuedTime,
+                    guidelines: [],
+                    identifier: alert?.alertId,
+                    issuedTime,
+                    ...(eventName ? { eventName } : {}),
+                    message: String(alert?.description ?? alert?.title ?? "").trim(),
+                    phenomenon: eventName || "Other",
+                    reportedAt: issuedTime,
+                    severity: this.#Config.WeatherAlert.Severities[code.slice(2, 4)] || "unknown",
+                    ...(source ? { source } : {}),
+                    standard: "",
+                    ...(code ? { token: code } : {}),
+                    urgency: "unknown",
+                };
+            })
+            .filter(Boolean);
+        Console.info("✅ CreateWeatherAlerts");
+        return {
+            alerts: convertedAlerts,
+            areaName: convertedAlerts.find(alert => alert?.areaName)?.areaName ?? "",
+            source: convertedAlerts.find(alert => alert?.source)?.source || "彩云天气",
+        };
+    }
+
+    #CreateWeatherAlertsV3CAP(body) {
+        Console.info("☑️ CreateWeatherAlertsV3CAP");
+        const convertedAlerts = (Array.isArray(body?.alerts) ? body.alerts : [])
+            .map(alert => {
+                const issuedTime = this.#DateISOString(alert?.sent_time);
+                if (!issuedTime) return undefined;
+                const effectiveTime = this.#DateISOString(alert?.effective_time) || issuedTime;
+                const expireTime = this.#DateISOString(alert?.expires_time);
+                const eventOnsetTime = this.#DateISOString(alert?.onset_time) || effectiveTime;
+                const area = Array.isArray(alert?.areas) ? alert.areas.find(item => item) : undefined;
+                const geocode = Array.isArray(area?.geocodes) ? area.geocodes.find(item => item?.value) : undefined;
+                const source = String(alert?.sender_name ?? "").trim() || this.#Config.WeatherAlert.Sources[Number(alert?.source)] || "";
+                const eventName = String(alert?.event_name ?? "").trim();
+                return {
+                    ...(geocode?.value ? { areaId: String(geocode.value).trim() } : {}),
+                    ...(area?.area_desc ? { areaName: String(area.area_desc).trim() } : {}),
+                    certainty: this.#Config.WeatherAlert.Certainties[Number(alert?.certainty)] || "unknown",
+                    description: String(alert?.headline ?? "").trim(),
+                    effectiveTime,
+                    eventOnsetTime,
+                    ...(expireTime ? { eventEndTime: expireTime, expireTime } : {}),
+                    guidelines: this.#SplitWeatherAlertGuidelines(alert?.instruction),
+                    identifier: alert?.id,
+                    issuedTime,
+                    ...(eventName ? { eventName } : {}),
+                    message: String(alert?.description ?? alert?.headline ?? "").trim(),
+                    phenomenon: (Array.isArray(alert?.categories) ? alert.categories : []).map(category => this.#Config.WeatherAlert.Categories[Number(category)]).find(Boolean) || eventName || "Other",
+                    reportedAt: issuedTime,
+                    severity: this.#Config.WeatherAlert.Severities[Number(alert?.severity)] || "unknown",
+                    ...(source ? { source } : {}),
+                    standard: "",
+                    urgency: this.#Config.WeatherAlert.Urgencies[Number(alert?.urgency)] || "unknown",
+                };
+            })
+            .filter(Boolean);
+        Console.info("✅ CreateWeatherAlertsV3CAP");
+        return {
+            alerts: convertedAlerts,
+            areaName: convertedAlerts.find(alert => alert?.areaName)?.areaName ?? "",
+            source: convertedAlerts.find(alert => alert?.source)?.source || "彩云天气",
+        };
+    }
+
+    #DateISOString(value) {
+        const seconds = Number(value);
+        if (!Number.isFinite(seconds) || seconds <= 0) return "";
+        return new Date(seconds * 1000).toISOString();
+    }
+
+    #SplitWeatherAlertGuidelines(instruction) {
+        return String(instruction ?? "")
+            .split(/\r?\n/)
+            .map(line => line.replace(/^\s*\d+[.、]\s*/, "").trim())
+            .filter(Boolean);
+    }
+}
+
+class QWeather {
+    static #MaximumWeatherAlertPageSize = 2 * 1024 * 1024;
+
+    constructor(parameters, token, host = "devapi.qweather.com") {
+        this.Name = "QWeather";
+        this.Version = "5.3.1";
+        Console.log(`🟧 ${this.Name} v${this.Version}`);
+        this.endpoint = `https://${host}`;
+        this.headers = { "X-QW-Api-Key": token };
+        this.version = parameters.version;
+        this.language =
+            this.#Config.Language[
+                String(parameters.language ?? "")
+                    .trim()
+                    .toLowerCase()
+            ] ?? (String(parameters.language ?? "").trim() ? parameters.language : this.#Config.Language[""]);
+        this.latitude = parameters.latitude;
+        this.longitude = parameters.longitude;
+        this.country = parameters.country;
+        this.weatherKitLanguage = String(parameters.weatherKitLanguage ?? parameters.language ?? "").trim() || "zh-CN";
+    }
+
+    #cache = {
+        airQualityCurrent: {},
+    };
+
+    #Config = {
+        Language: {
+            "": "zh",
+            en: "en",
+            "en-au": "en",
+            "en-ca": "en",
+            "en-gb": "en",
+            "en-us": "en",
+            ja: "ja",
+            "ja-jp": "ja",
+            zh: "zh",
+            "zh-cn": "zh-hans",
+            "zh-sg": "zh-hans",
+            "zh-hans": "zh-hans",
+            "zh-hans-cn": "zh-hans",
+            "zh-hant-hk": "zh-hant",
+            "zh-hant-mo": "zh-hant",
+            "zh-hant-tw": "zh-hant",
+            "zh-hk": "zh-hant",
+            "zh-mo": "zh-hant",
+            "zh-tw": "zh-hant",
+        },
+        Pollutants: {
+            co: "CO",
+            no: "NO",
+            no2: "NO2",
+            so2: "SO2",
+            o3: "OZONE",
+            nox: "NOX",
+            pm25: "PM2_5",
+            pm2p5: "PM2_5",
+            pm10: "PM10",
+            other: "NOT_AVAILABLE",
+            na: "NOT_AVAILABLE",
+            undefined: "NOT_AVAILABLE",
+            null: "NOT_AVAILABLE",
+        },
+        Units: {
+            "μg/m3": "MICROGRAMS_PER_CUBIC_METER",
+            "mg/m3": "MILLIGRAMS_PER_CUBIC_METER",
+            ppb: "PARTS_PER_BILLION",
+            ppm: "PARTS_PER_MILLION",
+        },
+        WeatherAlert: {
+            // QWeather 没有提供 CAP category，本表按官方事件名称映射；具体类别必须先于 Met 匹配。
+            // QWeather does not provide CAP category; this table maps official event names, with specific categories matched before Met.
+            EventCategories: [
+                { category: "Geo", codes: [[1013, 1013], [1037, 1037], [1241, 1251], [1603, 1603], [2032, 2032], [2159, 2159], [2163, 2163], [2320, 2323], [2348, 2348], [2363, 2363], [2373, 2373], [2378, 2378], [2399, 2400], [3140, 3140], [3144, 3144]] },
+                { category: "Safety", codes: [[1044, 1045], [1218, 1218], [2419, 2420], [2713, 2713]] },
+                { category: "Security", codes: [] },
+                { category: "Rescue", codes: [] },
+                { category: "Fire", codes: [[1025, 1026], [1041, 1041], [1077, 1077], [1084, 1084], [1605, 1605], [2005, 2005], [2132, 2132], [2158, 2158], [2192, 2192], [2207, 2207], [2302, 2302], [2349, 2349], [2414, 2414], [2743, 2743], [3139, 3139]] },
+                { category: "Health", codes: [[1024, 1024], [1042, 1042], [1066, 1066], [1068, 1069], [1071, 1072], [1082, 1082], [1210, 1210], [2851, 2851]] },
+                { category: "Env", codes: [[1029, 1029], [1032, 1032], [1067, 1067], [1074, 1074], [1217, 1217], [1271, 1274], [2202, 2202], [2374, 2374], [2389, 2389], [2413, 2413], [2527, 2527]] },
+                { category: "Transport", codes: [[1021, 1021], [1046, 1046], [1057, 1057], [2077, 2078], [2300, 2301], [2328, 2328], [2360, 2360], [2375, 2376], [2385, 2388], [2415, 2415], [2554, 2554], [2722, 2723], [2791, 2797]] },
+                { category: "Infra", codes: [[1081, 1081], [1203, 1204], [1216, 1216], [1221, 1221]] },
+                { category: "CBRNE", codes: [] },
+                { category: "Other", codes: [[2166, 2166], [3106, 3106], [3147, 3147], [9999, 9999]] },
+                {
+                    category: "Met",
+                    codes: [[1001, 1089], [1201, 1221], [1241, 1251], [1271, 1274], [1601, 1610], [1701, 1710], [1801, 1805], [2001, 2007], [2029, 2033], [2050, 2054], [2070, 2085], [2100, 2109], [2111, 2111], [2120, 2135], [2150, 2150], [2152, 2168], [2190, 2193], [2200, 2205], [2207, 2221], [2300, 2309], [2311, 2328], [2330, 2333], [2341, 2341], [2343, 2343], [2345, 2346], [2348, 2400], [2409, 2409], [2411, 2426], [2501, 2502], [2521, 2532], [2550, 2554], [2581, 2581], [2601, 2620], [2641, 2641], [2713, 2713], [2722, 2723], [2743, 2743], [2749, 2749], [2751, 2753], [2755, 2756], [2791, 2797], [2801, 2804], [2839, 2853], [2873, 2874], [3101, 3107], [3131, 3148]],
+                },
+            ],
+        },
+        Availability: {
+            Minutely: ["CN", "HK", "MO"],
+            AirQuality: ["AD", "BE", "BG", "CA", "CN", "HR", "CZ", "DK", "FI", "FR", "DE", "GI", "GR", "HK", "HU", "IE", "JP", "KR", "LV", "LT", "MO", "MT", "NL", "MK", "NO", "PL", "PT", "RO", "RS", "SG", "SK", "SI", "ES", "SE", "CH", "TW", "TH", "GB", "US"],
+        },
+    };
+
+    static async GetLocationsGrid(qweatherCache, setCache) {
+        Console.info("☑️ GetLocationsGrid");
+        const locationsGrid = qweatherCache?.locationsGrid;
+        // cache within 30 days
+        if (locationsGrid?.lastUpdated && locationsGrid.lastUpdated + 30 * 24 * 60 * 60 * 1000 > Date.now()) {
+            Console.info("✅ GetLocationsGrid", "Cache found!");
+            return locationsGrid.data;
+        } else {
+            Console.info("⚠️ GetLocationsGrid", "Cache not found or stale, fetching...");
+            const response = await fetch({
+                headers: locationsGrid?.etag ? { "If-None-Match": locationsGrid?.etag } : undefined,
+                url: "https://raw.githubusercontent.com/NSRingo/QWeather-Location-Grid/refs/heads/main/data/qweather-china-city-list-grid.json",
+            });
+
+            if (response.status === 304) {
+                Console.info("✅ GetLocationsGrid", "Cache not modified");
+                setCache({ ...qweatherCache, locationsGrid: { ...locationsGrid, lastUpdated: Date.now() } });
+                return locationsGrid.data;
+            }
+
+            const newLocationsGrid = JSON.parse(response.body);
+            setCache({
+                ...qweatherCache,
+                locationsGrid: { etag: response.headers.ETag, lastUpdated: Date.now(), data: newLocationsGrid },
+            });
+            Console.info("✅ GetLocationsGrid");
+            return newLocationsGrid;
+        }
+    }
+
+    // Codes by Claude AI
+    static GetLocationInfo(locationsGrid, latitude, longitude) {
+        Console.info("☑️ GetLocationInfo");
+
+        const { gridSize, grid } = locationsGrid;
+
+        // Haversine距离计算
+        const distance = (lat1, lng1, lat2, lng2) => {
+            const R = 6371; // 地球半径(km)
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLng = ((lng2 - lng1) * Math.PI) / 180;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        const getNearbyGridKeys = (lat, lng, radius = 2) => {
+            const centerX = Math.floor(lng / gridSize);
+            const centerY = Math.floor(lat / gridSize);
+            const keys = [];
+
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    keys.push(`${centerX + dx},${centerY + dy}`);
+                }
+            }
+
+            return keys;
+        };
+
+        const findNearestFast = (lat, lng) => {
+            const keys = getNearbyGridKeys(lat, lng, 2);
+            let nearest = null;
+            let minDist = Number.POSITIVE_INFINITY;
+
+            for (const key of keys) {
+                const locations = grid[key];
+                if (!locations) continue;
+
+                for (const loc of locations) {
+                    const dist = distance(lat, lng, loc.latitude, loc.longitude);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = loc;
+                    }
+                }
+            }
+
+            return nearest;
+        };
+
+        const nearest = findNearestFast(latitude, longitude);
+        Console.info("✅ GetLocationInfo");
+        return nearest;
+    }
+
+    /**
+     * 从 FlatBuffer 的 QWeather 预警页面链接中提取地区标识。
+     * Extract the location identifier from a FlatBuffer QWeather severe-weather URL.
+     * @param {string | null | undefined} value 预警页面链接 / Severe-weather URL.
+     * @returns {string | undefined} 地区标识 / Location identifier.
+     */
+    static ParseWeatherAlertPageURL(value) {
+        try {
+            const url = new URL(value);
+            if (url.protocol !== "https:" || url.hostname !== "www.qweather.com") return undefined;
+            if (url.search !== "?from=AppleWeatherService" || url.hash) return undefined;
+            return decodeURIComponent(url.pathname).match(/^\/{1,2}(?:en\/)?severe-weather\/([^/]+)\.html$/)?.[1];
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * 生成 QWeather 灾害预警页面链接。
+     * Build a QWeather severe-weather page URL.
+     * @param {string} identifier 地区标识 / Location identifier.
+     * @param {string} language WeatherKit 语言 / WeatherKit language.
+     * @param {boolean} includeAppleSource 是否附加 Apple 来源参数 / Whether to append the Apple source parameter.
+     * @returns {URL} QWeather 页面链接 / QWeather page URL.
+     */
+    static BuildWeatherAlertPageURL(identifier, language = "zh-CN", includeAppleSource = true) {
+        identifier = identifier?.trim();
+        const url = new URL("https://www.qweather.com");
+        url.pathname = language.toLowerCase().startsWith("en") ? `/en/severe-weather/${identifier}.html` : `/severe-weather/${identifier}.html`;
+        if (includeAppleSource) url.searchParams.set("from", "AppleWeatherService");
+        return url;
+    }
+
+    /**
+     * 生成内部使用的 Apple 天气预警详情链接。
+     * Build the internally rewritten Apple weather alert details URL.
+     * @param {string} identifier 地区标识 / Location identifier.
+     * @param {string} language WeatherKit 语言 / WeatherKit language.
+     * @returns {string} Apple 预警详情链接 / Apple alert details URL.
+     */
+    static BuildAppleAlertDetailsURL(identifier, language = "zh-CN") {
+        return `https://weatherkit.apple.com/alertDetails/index.html?ids=${encodeURIComponent(identifier)}&lang=${encodeURIComponent(language)}&party=qweather`;
+    }
+
+    /**
+     * 从 QWeather HTML 提取原始预警来源记录。
+     * Extract raw alert source records from QWeather HTML.
+     * @param {string} html QWeather 页面 HTML / QWeather page HTML.
+     * @returns {{alerts: Array<object>, areaName: string, source: string}} 提取后的来源集合 / Extracted source collection.
+     */
+    static ExtractWeatherAlertPage(html) {
+        const sourceHtml = String(html ?? "");
+        let city = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<h1[^>]*class=["'][^"']*c-submenu__location[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i);
+        if (!city) {
+            const titleText = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<title>([\s\S]*?)<\/title>/i);
+            city = titleText.replace(/\s*(?:severe weather warning|灾害预警|天气预警).*$/i, "").trim();
+        }
+        const administration = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<span[^>]*class=["'][^"']*c-submenu__location-adm[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+        const dataSource = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<a[^>]*class=["'][^"']*data-source__txt[^"']*["'][^>]*>([\s\S]*?)<\/a>/i)
+            .replace(/^(?:预警数据来源|Warning data source)\s*[:：]\s*/i, "")
+            .trim();
+        const starts = Array.from(sourceHtml.matchAll(/<div[^>]*class=["']([^"']*\bc-city-warning-events\b[^"']*)["'][^>]*>/gi), match => ({
+            index: match.index,
+            contentStart: match.index + match[0].length,
+            className: match[1],
+        }));
+        const alerts = [];
+
+        for (const [index, start] of starts.entries()) {
+            let end = index + 1 < starts.length ? starts[index + 1].index : sourceHtml.length;
+            const nearby = sourceHtml.indexOf('<div class="c-city-warning-around">', start.contentStart);
+            if (nearby !== -1 && nearby < end) end = nearby;
+            const block = sourceHtml.slice(start.contentStart, end);
+            const description = QWeather.#FirstWeatherAlertPageMatch(block, /<h3[^>]*>([\s\S]*?)<\/h3>/i);
+            const issueText = QWeather.#FirstWeatherAlertPageMatch(block, /<p[^>]*>\s*((?:Issue\s+date|发布\s*日期)\s*[:：][\s\S]*?)<\/p>/i)
+                .replace(/^(?:Issue\s+date|发布\s*日期)\s*[:：]\s*/i, "")
+                .trim();
+            const message = QWeather.#FirstWeatherAlertPageMatch(block, /<p[^>]*class=["'][^"']*warning-events__txt[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
+            const standardBlock = block.match(/<div[^>]*class=["'][^"']*warning-explain[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
+            const standard = QWeather.#FirstWeatherAlertPageMatch(standardBlock, /<h4[^>]*>[\s\S]*?<\/h4>\s*<p[^>]*>([\s\S]*?)<\/p>/i);
+            const guideBlock = block.match(/<div[^>]*class=["'][^"']*warning-defense__txt[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
+            const guidelines = Array.from(guideBlock.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi), match =>
+                QWeather.#DecodeWeatherAlertPageHTML(match[1])
+                    .replace(/^\s*\d+[.、]\s*/, "")
+                    .trim(),
+            ).filter(Boolean);
+            const normalizedIssueText = issueText && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(issueText) ? `${issueText.replace(" ", "T")}+08:00` : issueText;
+            const issueDate = new Date(normalizedIssueText);
+            if ((!description && !message) || Number.isNaN(issueDate.getTime())) continue;
+            const headline = description || message;
+            const parsedHeadline = QWeather.#ParseWeatherAlertPageHeadline(headline);
+            const source = parsedHeadline.source || dataSource || "QWeather";
+
+            const severitySource = `${start.className} ${description}`.toLowerCase();
+            let severity = "unknown";
+            switch (true) {
+                case /warning--red|红色|\bred\b/.test(severitySource):
+                    severity = "extreme";
+                    break;
+                case /warning--orange|橙色|\borange\b/.test(severitySource):
+                    severity = "severe";
+                    break;
+                case /warning--yellow|黄色|\byellow\b/.test(severitySource):
+                    severity = "moderate";
+                    break;
+                case /warning--blue|蓝色|\bblue\b/.test(severitySource):
+                    severity = "minor";
+                    break;
+            }
+
+            alerts.push({
+                description: headline,
+                ...(parsedHeadline.eventName ? { eventName: parsedHeadline.eventName } : {}),
+                guidelines,
+                issuedTime: issueDate.toISOString(),
+                message,
+                reportedAt: issueDate.toISOString(),
+                severity,
+                source,
+                standard,
+            });
+        }
+
+        return {
+            alerts,
+            areaName: city || administration,
+            source: alerts.find(alert => alert?.source)?.source || dataSource || "QWeather",
+        };
+    }
+
+    /**
+     * 抓取并提取 QWeather 灾害预警页面。
+     * Fetch and extract a QWeather severe-weather page.
+     * @param {string} identifier 地区标识 / Location identifier.
+     * @param {string} language WeatherKit 语言 / WeatherKit language.
+     * @param {Record<string, string | string[] | undefined>} requestHeaders 原请求头 / Original request headers.
+     * @returns {Promise<{alerts: Array<object>, areaName: string, source: string}>} 来源集合 / Source collection.
+     */
+    static async FetchWeatherAlertPage(identifier, language = "zh-CN", requestHeaders = {}) {
+        const sourceUrl = QWeather.BuildWeatherAlertPageURL(identifier, language);
+        const normalizedHeaders = Object.fromEntries(Object.entries(requestHeaders).map(([key, value]) => [key.toLowerCase(), value]));
+        const sourceHeaders = {
+            Accept: "text/html,application/xhtml+xml",
+            "Accept-Language": normalizedHeaders["accept-language"] ?? language,
+            Referer: "https://www.qweather.com/",
+        };
+        if (normalizedHeaders["user-agent"]) sourceHeaders["User-Agent"] = normalizedHeaders["user-agent"];
+
+        Console.info("☑️ QWeather.FetchWeatherAlertPage", `url: ${sourceUrl}`, `language: ${language}`);
+        const sourceResponse = await fetch({
+            url: sourceUrl.toString(),
+            headers: sourceHeaders,
+            "auto-cookie": false,
+        });
+        const contentType = sourceResponse.headers?.["Content-Type"] ?? sourceResponse.headers?.["content-type"] ?? "";
+        Console.info("QWeather.FetchWeatherAlertPage", `status: ${sourceResponse.statusCode ?? sourceResponse.status}`, `contentType: ${contentType || "undefined"}`);
+        if (!sourceResponse.ok) {
+            Console.warn("QWeather.FetchWeatherAlertPage", `upstreamStatus: ${sourceResponse.statusCode ?? sourceResponse.status}`);
+            return { alerts: [], areaName: "", source: "QWeather" };
+        }
+        if (!contentType.toLowerCase().includes("text/html")) {
+            Console.warn("QWeather.FetchWeatherAlertPage", `unexpectedContentType: ${contentType || "undefined"}`);
+            return { alerts: [], areaName: "", source: "QWeather" };
+        }
+        const html = String(sourceResponse.body ?? "");
+        const sourceSize = new TextEncoder().encode(html).byteLength;
+        Console.debug("QWeather.FetchWeatherAlertPage", `bodyBytes: ${sourceSize}`);
+        if (sourceSize > QWeather.#MaximumWeatherAlertPageSize) throw new RangeError("QWeather alert page is too large");
+
+        const extracted = QWeather.ExtractWeatherAlertPage(html);
+        Console.info("✅ QWeather.FetchWeatherAlertPage", `alerts: ${extracted.alerts.length}`, `source: ${extracted.source}`);
+        const areaId = identifier.match(/-(\d+)$/)?.[1];
+        return {
+            ...extracted,
+            alerts: extracted.alerts.map(alert => ({
+                ...alert,
+                ...(areaId && !alert.areaId ? { areaId } : {}),
+                ...(extracted.areaName && !alert.areaName ? { areaName: extracted.areaName } : {}),
+            })),
+        };
+    }
+
+    async GeoAPI(path = "city/lookup") {
+        Console.info("☑️ GeoAPI");
+        const request = {
+            url: `${this.endpoint}/geo/v2/${path}?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let metadata;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200":
+                    metadata = {
+                        attributionUrl: body?.location?.[0]?.fxLink,
+                        latitude: body?.location?.[0]?.lat,
+                        longitude: body?.location?.[0]?.lon,
+                        providerName: "和风天气",
+                        locationID: body?.location?.[0]?.id,
+                    };
+                    break;
+                default:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`GeoAPI: ${error}`);
+        } finally {
+            Console.debug(`metadata: ${JSON.stringify(metadata, null, 2)}`);
+            Console.info("✅ GeoAPI");
+        }
+        return metadata;
+    }
+
+    /**
+     * 拉取 QWeather weatheralert/v1/current，并标准化为 WeatherAlerts.Build 可消费的来源结构。
+     * Fetch QWeather weatheralert/v1/current and normalize it for WeatherAlerts.Build.
+     * @returns {Promise<{metadata: object, detailsUrl: string, alerts: Array<object>, areaName: string, source: string}>} WeatherKit 顶级预警对象 / Top-level WeatherKit alert object.
+     */
+    async WeatherAlert() {
+        Console.info("☑️ WeatherAlert");
+        const failedWeatherAlerts = {
+            metadata: {
+                attributionUrl: "https://developer.qweather.com/attribution.html",
+            },
+            detailsUrl: `https://weatherkit.apple.com/alertDetails/index.html?ids=${this.latitude},${this.longitude}&lang=${encodeURIComponent(this.weatherKitLanguage)}&party=QWeather`,
+            alerts: [],
+            areaName: "",
+            source: "国家预警信息发布中心",
+        };
+        const request = {
+            url: `${this.endpoint}/weatheralert/v1/current/${this.latitude}/${this.longitude}?lang=${this.language}`,
+            headers: {
+                ...this.headers,
+                Accept: "application/json",
+            },
+        };
+        let weatherAlerts = failedWeatherAlerts;
+        try {
+            const response = await fetch(request);
+            const body = JSON.parse(response?.body ?? "{}");
+            if (response?.ok === false) {
+                Console.warn("WeatherAlert", `upstreamStatus: ${response.statusCode ?? response.status}`);
+                return failedWeatherAlerts;
+            }
+            if (!body?.metadata || !Array.isArray(body?.alerts)) throw Error(JSON.stringify(body?.error ?? body?.code ?? body));
+            weatherAlerts = { ...failedWeatherAlerts, ...this.#CreateWeatherAlerts(body) };
+        } catch (error) {
+            Console.error(`WeatherAlert: ${error}`);
+        } finally {
+            Console.info("✅ WeatherAlert");
+        }
+        return weatherAlerts;
+    }
+
+    /**
+     * 拉取 QWeather 灾害预警页面，并生成 WeatherKit 顶级预警对象。
+     * Fetch a QWeather severe-weather page and build a top-level WeatherKit alert object.
+     * @param {string | URL | null | undefined} url QWeather 预警页面链接 / QWeather severe-weather page URL.
+     * @returns {Promise<object | undefined>} WeatherKit 顶级预警对象 / Top-level WeatherKit alert object.
+     */
+    async WeatherAlertWeb(url) {
+        Console.info("☑️ WeatherAlertWeb");
+        const identifier = QWeather.ParseWeatherAlertPageURL(url);
+        if (!identifier) {
+            Console.info("✅ WeatherAlertWeb", "Unsupported URL");
+            return undefined;
+        }
+        const failedWeatherAlerts = {
+            metadata: {
+                attributionUrl: String(url),
+            },
+            detailsUrl: QWeather.BuildAppleAlertDetailsURL(identifier, this.weatherKitLanguage),
+            alerts: [],
+            areaName: "",
+            source: "QWeather",
+        };
+        let weatherAlerts = failedWeatherAlerts;
+        try {
+            weatherAlerts = { ...failedWeatherAlerts, ...(await QWeather.FetchWeatherAlertPage(identifier, this.weatherKitLanguage)) };
+        } catch (error) {
+            Console.error(`WeatherAlertWeb: ${error}`);
+        } finally {
+            Console.info("✅ WeatherAlertWeb");
+        }
+        return weatherAlerts;
+    }
+
+    async WeatherNow() {
+        Console.info("☑️ WeatherNow");
+        const request = {
+            url: `${this.endpoint}/v7/weather/now?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let currentWeather;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    const timeStamp = (Date.now() / 1000) | 0;
+                    currentWeather = {
+                        metadata: {
+                            attributionUrl: body?.fxLink,
+                            expireTime: timeStamp + 60 * 60,
+                            language: "zh-CN", // `${this.language}-${this.country}`,
+                            latitude: this.latitude,
+                            longitude: this.longitude,
+                            providerLogo: providerNameToLogo("和风天气", this.version),
+                            providerName: "和风天气",
+                            readTime: timeStamp,
+                            reportedTime: (new Date(body?.now?.pubTime).getTime() / 1000) | 0,
+                            temporarilyUnavailable: false,
+                            sourceType: "STATION",
+                        },
+                        cloudCover: Number.parseInt(body?.now?.cloud, 10),
+                        ...Weather.ConvertWeatherCodeField(body?.now?.text),
+                        humidity: Number.parseInt(body?.now?.humidity, 10),
+                        perceivedPrecipitationIntensity: Number.parseFloat(body?.now?.precip),
+                        pressure: Number.parseFloat(body?.now?.pressure),
+                        temperature: Number.parseFloat(body?.now?.temp),
+                        temperatureApparent: Number.parseFloat(body?.now?.feelsLike),
+                        temperatureDewPoint: Number.parseFloat(body?.now?.dew),
+                        visibility: Number.parseFloat(body?.now?.vis) * 1000,
+                        windDirection: Number.parseInt(body?.now?.wind360, 10),
+                        windSpeed: Number.parseFloat(body?.now?.windSpeed),
+                    };
+                    break;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`WeatherNow: ${error}`);
+        } finally {
+            //Console.debug(`currentWeather: ${JSON.stringify(currentWeather, null, 2)}`);
+            Console.info("✅ WeatherNow");
+        }
+        return currentWeather;
+    }
+
+    async AirNow() {
+        Console.info("☑️ AirNow");
+        const request = {
+            url: `${this.endpoint}/v7/air/now?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let airQuality;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    const timeStamp = (Date.now() / 1000) | 0;
+                    airQuality = {
+                        metadata: {
+                            attributionUrl: body?.fxLink,
+                            expireTime: timeStamp + 60 * 60,
+                            language: "zh-CN", // `${this.language}-${this.country}`,
+                            latitude: this.latitude,
+                            longitude: this.longitude,
+                            providerLogo: providerNameToLogo("和风天气", this.version),
+                            providerName: "和风天气",
+                            readTime: timeStamp,
+                            reportedTime: (new Date(body?.now?.pubTime).getTime() / 1000) | 0,
+                            temporarilyUnavailable: false,
+                            sourceType: "STATION",
+                        },
+                        categoryIndex: Number.parseInt(body?.now?.level, 10),
+                        index: Number.parseInt(body?.now?.aqi, 10),
+                        isSignificant: false,
+                        pollutants: this.#CreatePollutantsV7(body?.now),
+                        previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+                        primaryPollutant: this.#Config.Pollutants[body?.now?.primary] || "NOT_AVAILABLE",
+                        scale: "HJ6332012",
+                    };
+                    if (body?.refer?.sources?.[0]) airQuality.metadata.providerName += `\n数据源: ${body?.refer?.sources?.[0]}`;
+                    break;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`AirNow: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(airQuality, null, 2)}`);
+            Console.info("✅ AirNow");
+        }
+        return airQuality;
+    }
+
+    async #AirQualityCurrent() {
+        Console.info("☑️ AirQualityCurrent");
+
+        if (this.#cache.airQualityCurrent?.metadata?.tag && !this.#cache.airQualityCurrent?.error) {
+            Console.info("✅ AirQualityCurrent", "Using cache");
+            return this.#cache.airQualityCurrent;
+        }
+
+        const request = {
+            url: `${this.endpoint}/airquality/v1/current/${this.latitude}/${this.longitude}`,
+            headers: this.headers,
+        };
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.error) {
+                case undefined: {
+                    this.#cache.airQualityCurrent = body;
+                    return body;
+                }
+                default:
+                    throw Error(JSON.stringify(body?.error, null, 2));
+            }
+        } catch (error) {
+            Console.error(`AirQualityCurrent: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(airQuality, null, 2)}`);
+            Console.info("✅ AirQualityCurrent");
+        }
+        return {};
+    }
+
+    async Minutely() {
+        Console.info("☑️ Minutely");
+        // 判断可用性：当前数据源不支持这个国家/地区
+        if (!this.#Config.Availability.Minutely.includes(this.country)) {
+            Console.warn("Minutely", `Unsupported country: ${this.country}`);
+            return;
+        }
+
+        const request = {
+            url: `${this.endpoint}/v7/minutely/5m?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let forecastNextHour;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    const timeStamp = (Date.now() / 1000) | 0;
+                    const reportedTime = Math.trunc(new Date(body?.updateTime).getTime() / 1000);
+                    let minuteStemp = new Date(body?.updateTime).setSeconds(0, 0);
+                    minuteStemp = minuteStemp.valueOf() / 1000;
+                    forecastNextHour = {
+                        metadata: {
+                            attributionUrl: body?.fxLink,
+                            expireTime: timeStamp + ForecastNextHour.ExpirationInterval,
+                            language: "zh-CN", // `${this.language}-${this.country}`, // body?.lang,
+                            latitude: this.latitude,
+                            longitude: this.longitude,
+                            providerLogo: providerNameToLogo("和风天气", this.version),
+                            providerName: "和风天气",
+                            readTime: timeStamp,
+                            reportedTime,
+                            temporarilyUnavailable: false,
+                            sourceType: "MODELED",
+                        },
+                        condition: [],
+                        forecastEnd: 0,
+                        forecastStart: minuteStemp,
+                        minutes: body?.minutely
+                            ?.map((minutely, index) => {
+                                const minute = {
+                                    perceivedPrecipitationIntensity: 0,
+                                    precipitationChance: 0,
+                                    precipitationIntensity: Number.parseFloat(minutely.precip) * 12,
+                                    startTime: new Date(minutely.fxTime) / 1000,
+                                };
+                                let minutes = [{ ...minute }, { ...minute }, { ...minute }, { ...minute }, { ...minute }];
+                                minutes = minutes.map((minute, index) => {
+                                    minute.startTime = minute.startTime + index * 60;
+                                    return minute;
+                                });
+                                return minutes;
+                            })
+                            .flat(Number.POSITIVE_INFINITY),
+                        summary: [],
+                    };
+                    forecastNextHour.minutes.length = Math.min(85, forecastNextHour.minutes.length);
+                    forecastNextHour.forecastEnd = minuteStemp + 60 * forecastNextHour.minutes.length;
+                    forecastNextHour.minutes = ForecastNextHour.Minute(forecastNextHour.minutes, body?.summary, "mmph");
+                    forecastNextHour.summary = ForecastNextHour.Summary(forecastNextHour.minutes);
+                    forecastNextHour.condition = ForecastNextHour.Condition(forecastNextHour.summary);
+                    break;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`Minutely: ${error}`);
+        } finally {
+            //Console.debug(`forecastNextHour: ${JSON.stringify(forecastNextHour, null, 2)}`);
+            Console.info("✅ Minutely");
+        }
+        return forecastNextHour;
+    }
+
+    async Hourly(hours = 168) {
+        Console.info("☑️ Hourly", `host: ${this.host}`);
+        const request = {
+            url: `${this.endpoint}/v7/weather/${hours}h?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let forecastHourly;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    const timeStamp = (Date.now() / 1000) | 0;
+                    forecastHourly = {
+                        metadata: {
+                            attributionUrl: body?.fxLink,
+                            expireTime: timeStamp + 60 * 60,
+                            language: "zh-CN", // `${this.language}-${this.country}`, // body?.lang,
+                            latitude: this.latitude,
+                            longitude: this.longitude,
+                            providerLogo: providerNameToLogo("和风天气", this.version),
+                            providerName: "和风天气",
+                            readTime: timeStamp,
+                            // WeatherKit metadata 的 uint 时间字段使用 Unix epoch 秒，不能写入 Date 的毫秒值。
+                            reportedTime: Math.trunc(new Date(body?.updateTime).getTime() / 1000),
+                            temporarilyUnavailable: false,
+                            sourceType: "STATION",
+                        },
+                        hours: body?.hourly?.map(hourly => {
+                            return {
+                                cloudCover: Number.parseInt(hourly?.cloud, 10),
+                                // cloudCoverHighAltPct: 0, // Not given
+                                // cloudCoverLowAltPct: 0, // Not given
+                                // cloudCoverMidAltPct: 0, // Not given
+                                ...Weather.ConvertWeatherCodeField(hourly?.text),
+                                // daylight: false, // Not given
+                                forecastStart: (new Date(hourly?.fxTime).getTime() / 1000) | 0,
+                                humidity: Number.parseInt(hourly?.humidity, 10),
+                                // perceivedPrecipitationIntensity: "", // Not given
+                                precipitationAmount: Number.parseFloat(hourly?.precip),
+                                precipitationChance: Number.parseInt(hourly?.pop, 10),
+                                precipitationIntensity: Number.parseInt(hourly?.precip, 10),
+                                // precipitationType: "", // Not given
+                                pressure: Number.parseFloat(hourly?.pressure),
+                                // pressureTrend: "", // Not given
+                                // snowfallAmount: 0, // Not given
+                                // snowfallIntensity: 0, // Not given
+                                temperature: Number.parseFloat(hourly?.temp),
+                                // temperatureApparent: 0, // Not given
+                                temperatureDewPoint: Number.parseFloat(hourly?.dew),
+                                // uvIndex: 0, // Not given
+                                // visibility: 0, // Not given
+                                windDirection: Number.parseInt(hourly?.wind360, 10),
+                                // windGust: 0, // Not given
+                                windSpeed: Number.parseFloat(hourly?.windSpeed),
+                            };
+                        }),
+                    };
+                    break;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`Hourly: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(forecastHourly, null, 2)}`);
+            Console.info("✅ Hourly");
+        }
+        return forecastHourly;
+    }
+
+    async Daily(days = 10) {
+        Console.info("☑️ Daily", `host: ${this.host}`);
+        const request = {
+            url: `${this.endpoint}/v7/weather/${days}d?location=${this.longitude},${this.latitude}`,
+            headers: this.headers,
+        };
+        let forecastDaily;
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    const timeStamp = (Date.now() / 1000) | 0;
+                    const reportedTime = new Date(body?.updateTime);
+                    const metadata = {
+                        attributionUrl: body?.fxLink,
+                        expireTime: timeStamp + 60 * 60,
+                        language: "zh-CN", // `${this.language}-${this.country}`, // body?.lang,
+                        latitude: this.latitude,
+                        longitude: this.longitude,
+                        providerLogo: providerNameToLogo("和风天气", this.version),
+                        providerName: "和风天气",
+                        readTime: timeStamp,
+                        // WeatherKit metadata 的 uint 时间字段使用 Unix epoch 秒，不能写入 Date 的毫秒值。
+                        reportedTime: Math.trunc(reportedTime.getTime() / 1000),
+                        temporarilyUnavailable: false,
+                        sourceType: "STATION",
+                    };
+                    const timezoneOffset = reportedTime.getTimezoneOffset();
+                    forecastDaily = {
+                        metadata: metadata,
+                        days: body?.daily?.map(daily => {
+                            const timeStamp = ((Date.parse(daily?.fxDate) / 1000) | 0) + timezoneOffset * 60; // 本地转 Unix 时间戳
+                            return {
+                                forecastStart: timeStamp,
+                                forecastEnd: timeStamp + 24 * 3600, // 24 hours
+                                // conditionCode: Weather.ConvertWeatherCode(daily?.textDay), // Not given (用白天数据代替)
+                                // humidity 用一整天的数据代替
+                                // humidityMax: daily?.humidity, // Not Accurate
+                                // humidityMin: daily?.humidity, // Not Accurate
+                                maxUvIndex: Number.parseInt(daily?.uvIndex, 10),
+                                moonPhase: Weather.ConvertMoonPhase(daily?.moonPhase),
+                                moonrise: this.#ConvertTimeStamp(daily?.fxDate, daily?.moonrise),
+                                moonset: this.#ConvertTimeStamp(daily?.fxDate, daily?.moonset),
+                                // QWeather does not provide WeatherKit's paired by-type totals.
+                                // Keep Apple's scalar/by-type amount pair atomic during the merge.
+                                // precipitationAmountByType: [], // Not given
+                                // precipitationChance: 0, // Not given
+                                // precipitationType: "", // Not given
+                                // snowfallAmount: 0, // Not given
+                                // solarMidnight: 0, // Not given
+                                // solarNoon: 0, // Not given
+                                sunrise: this.#ConvertTimeStamp(daily?.fxDate, daily?.sunrise),
+                                // sunriseAstronomical: 0, // Not given
+                                // sunriseCivil: 0, // Not given
+                                // sunriseNautical: 0, // Not given
+                                sunset: this.#ConvertTimeStamp(daily?.fxDate, daily?.sunset),
+                                // sunsetAstronomical: 0, // Not given
+                                // sunsetCivil: 0, // Not given
+                                // sunsetNautical: 0, // Not given
+                                temperatureMax: Number.parseFloat(daily?.tempMax),
+                                // temperatureMaxTime: 0, // Not given
+                                temperatureMin: Number.parseFloat(daily?.tempMin),
+                                // temperatureMinTime: 0, // Not given
+                                // visibilityMax: 0, // Not given
+                                // visibilityMin: 0, // Not given
+                                // windGustSpeedMax: 0, // Not given
+                                windSpeedAvg: (Number.parseFloat(daily?.windSpeedDay) * 7 + Number.parseFloat(daily?.windSpeedNight) * 17) / 24, // 加权平均：白天7小时，晚上17小时
+                                // windSpeedMax: 0, // Not given
+                                daytimeForecast: {
+                                    forecastStart: timeStamp + 7 * 3600, // 7 hours
+                                    forecastEnd: timeStamp + 7 * 3600 + 12 * 3600, // 7 + 12 hours
+                                    // cloudCover: 0, // Not given
+                                    // cloudCoverHighAltPct: 0, // Not given
+                                    // cloudCoverLowAltPct: 0, // Not given
+                                    // cloudCoverMidAltPct: 0, // Not given
+                                    ...Weather.ConvertWeatherCodeField(daily?.textDay),
+                                    // humidity 用一整天的数据代替
+                                    // humidityMax: daily?.humidity, // Not Accurate
+                                    // humidityMin: daily?.humidity, // Not Accurate
+                                    // The daily total cannot be reused as a daytime-only accumulated amount.
+                                    // precipitationAmountByType: [], // Not given
+                                    // precipitationChance: 0, // Not given
+                                    // precipitationType: "", // Not given
+                                    // snowfallAmount: 0, // Not given
+                                    // temperatureMax: 0, // Not given
+                                    // temperatureMin: 0, // Not given
+                                    // visibility 用一整天的数据代替
+                                    // visibilityMax: 0, // Not given
+                                    // visibilityMin: 0, // Not given
+                                    windDirection: Number.parseInt(daily?.wind360Day, 10),
+                                    // windGustSpeedMax: 0, // Not given
+                                    windSpeed: Number.parseFloat(daily?.windSpeedDay),
+                                    // windSpeedMax: 0, // Not given
+                                },
+                                overnightForecast: {
+                                    forecastStart: timeStamp + 19 * 3600, // 19 hours
+                                    forecastEnd: timeStamp + 19 * 3600 + 12 * 3600, // 19 + 12 hours
+                                    // cloudCover: 0, // Not given
+                                    // cloudCoverHighAltPct: 0, // Not given
+                                    // cloudCoverLowAltPct: 0, // Not given
+                                    // cloudCoverMidAltPct: 0, // Not given
+                                    ...Weather.ConvertWeatherCodeField(daily?.textNight),
+                                    // humidity 用一整天的数据代替
+                                    // humidityMax: daily?.humidity, // Not Accurate
+                                    // humidityMin: daily?.humidity, // Not Accurate
+                                    // The daily total cannot be reused as an overnight-only accumulated amount.
+                                    // precipitationAmountByType: [], // Not given
+                                    // precipitationChance: 0, // Not given
+                                    // precipitationType: "", // Not given
+                                    // snowfallAmount: 0, // Not given
+                                    // temperatureMax: 0, // Not given
+                                    // temperatureMin: 0, // Not given
+                                    // visibility 用一整天的数据代替
+                                    // visibilityMax: 0, // Not given
+                                    // visibilityMin: 0, // Not given
+                                    windDirection: Number.parseInt(daily?.wind360Night, 10),
+                                    // windGustSpeedMax: 0, // Not given
+                                    windSpeed: Number.parseFloat(daily?.windSpeedNight),
+                                    // windSpeedMax: 0, // Not given
+                                },
+                            };
+                        }),
+                    };
+                    break;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`Daily: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(forecastDaily, null, 2)}`);
+            Console.info("✅ Daily");
+        }
+        return forecastDaily;
+    }
+
+    async #HistoricalAir(locationID = new Number(), date = time("yyyyMMdd", Date.now() - 24 * 60 * 60 * 1000)) {
+        Console.info("☑️ HistoricalAir", `locationID: ${locationID}`, `date: ${date}`);
+        const request = {
+            url: `${this.endpoint}/v7/historical/air?location=${locationID}&date=${date}`,
+            headers: this.headers,
+        };
+        try {
+            const body = await fetch(request).then(response => JSON.parse(response?.body ?? "{}"));
+            switch (body?.code) {
+                case "200": {
+                    return body;
+                }
+                case "204":
+                case "400":
+                case "401":
+                case "402":
+                case "403":
+                case "404":
+                case "429":
+                case "500":
+                case undefined:
+                    throw Error(body?.code);
+            }
+        } catch (error) {
+            Console.error(`HistoricalAir: ${error}`);
+        } finally {
+            //Console.debug(`airQuality: ${JSON.stringify(airQuality, null, 2)}`);
+            Console.info("✅ HistoricalAir");
+        }
+        return {};
+    }
+
+    #CreateWeatherAlerts(body) {
+        Console.info("☑️ CreateWeatherAlerts");
+        const convertedAlerts = (Array.isArray(body?.alerts) ? body.alerts : []).map(alert => this.#CreateWeatherAlert(alert)).filter(Boolean);
+        Console.info("✅ CreateWeatherAlerts");
+        return {
+            alerts: convertedAlerts,
+            areaName: convertedAlerts.find(alert => alert?.areaName)?.areaName ?? "",
+            source: convertedAlerts.find(alert => alert?.source)?.source || (Array.isArray(body?.metadata?.attributions) ? body.metadata.attributions : []).find(item => item && !/延迟|过时|disclaimer|delayed|outdated/i.test(item)) || "国家预警信息发布中心",
+        };
+    }
+
+    /**
+     * 将单条 QWeather 预警转成 Apple alertDetails JSON 的中间记录。
+     * Convert one QWeather alert item to the intermediate record used by Apple alertDetails JSON.
+     * @param {any} alert QWeather alerts[] 项；senderName 为签发者，areaName 为受影响区域，onsetTime 为事件开始时间，eventType.name 为本地化事件名，eventType.code 用于分类和 token。
+     * QWeather alerts[] item; senderName is the issuer, areaName is the affected area, onsetTime is the event onset, eventType.name is the localized event name, and eventType.code supplies the category and token.
+     * @returns {object | undefined} 标准化后的预警记录 / Normalized alert record.
+     */
+    #CreateWeatherAlert(alert) {
+        const issuedTime = this.#DateISOString(alert?.issuedTime || alert?.effectiveTime);
+        if (!issuedTime) return undefined;
+        const effectiveTime = this.#DateISOString(alert?.effectiveTime) || issuedTime;
+        const expireTime = this.#DateISOString(alert?.expiresTime || alert?.expireTime);
+        const eventOnsetTime = this.#DateISOString(alert?.eventOnsetTime || alert?.onsetTime || alert?.effectiveTime) || effectiveTime;
+        const eventEndTime = this.#DateISOString(alert?.eventEndTime || alert?.endTime || alert?.expiresTime || alert?.expireTime);
+        const source = String(alert?.senderName ?? "").trim();
+        const areaId = String(alert?.areaId ?? alert?.areaCode ?? "").trim();
+        const areaName = String(alert?.areaName ?? "").trim();
+        const token = String(alert?.token ?? alert?.eventType?.code ?? alert?.icon ?? "").trim();
+        const eventCode = Number(alert?.eventType?.code);
+        const eventName = String(alert?.eventType?.name ?? "").trim();
+        return {
+            ...(areaId ? { areaId } : {}),
+            ...(areaName ? { areaName } : {}),
+            certainty: alert?.certainty ?? "unknown",
+            description: String(alert?.headline ?? "").trim(),
+            effectiveTime,
+            ...(eventEndTime ? { eventEndTime } : {}),
+            eventOnsetTime,
+            ...(expireTime ? { expireTime } : {}),
+            guidelines: this.#SplitWeatherAlertGuidelines(alert?.instruction ?? alert?.instructions),
+            identifier: alert?.id,
+            ...(alert?.importance ? { importance: alert.importance } : {}),
+            issuedTime,
+            ...(eventName ? { eventName } : {}),
+            message: (String(alert?.description ?? "").trim() || String(alert?.headline ?? "").trim()).replace(/^\p{Ll}/u, character => character.toUpperCase()),
+            phenomenon: (this.#Config.WeatherAlert.EventCategories.find(({ codes }) => codes.some(([start, end]) => eventCode >= start && eventCode <= end))?.category ?? eventName) || "Other",
+            responses: Array.isArray(alert?.responseTypes) ? alert.responseTypes.map(response => String(response ?? "").trim()).filter(Boolean) : [],
+            reportedAt: issuedTime,
+            ...(alert?.significance ? { significance: alert.significance } : {}),
+            ...(source ? { source } : {}),
+            severity: alert?.severity ?? "unknown",
+            standard: "",
+            ...(token ? { token } : {}),
+            urgency: alert?.urgency ?? "unknown",
+        };
+    }
+
+    #Metadata(attributionUrl = `https://www.qweather.com/`, sourceType = "MODELED", temporarilyUnavailable = false) {
+        const timeStamp = Date.now() / 1000;
+        return {
+            longitude: this.longitude,
+            providerName: "和风天气",
+            providerLogo: providerNameToLogo("和风天气", this.version),
+            reportedTime: timeStamp,
+            latitude: this.latitude,
+            expireTime: timeStamp + 60 * 60,
+            attributionUrl,
+            temporarilyUnavailable,
+            readTime: timeStamp,
+            sourceType,
+        };
+    }
+
+    /**
+     * 创建 WeatherKit 格式污染物对象（airquality/v1/current 数据源）。
+     * @link https://dev.qweather.com/docs/airquality/
+     * @param {Array<{
+     *   code: string,
+     *   concentration: { value: number, unit: string },
+     *   subIndexes?: Array<{ code: string, aqi: number }>
+     * }>} pollutantsObj - 原始污染物数组。
+     * @param {string} [scaleCode] - 目标指数口径 code（如 cn-mee / us-epa）。
+     * @returns {Array<{
+     *   pollutantType: string,
+     *   amount: number,
+     *   units: string,
+     *   index?: number
+     * }>} 转换后的污染物数组。
+     */
+    #CreatePollutants(pollutantsObj, scaleCode) {
+        Console.info("☑️ CreatePollutants");
+        Console.debug(`pollutantsObj: ${JSON.stringify(pollutantsObj)}`);
+
+        // TODO: what is ppmC? https://dev.qweather.com/docs/resource/air-info/#pollutants
+        const pollutants = pollutantsObj
+            .filter(pollutant => pollutant.concentration.unit !== "ppmC")
+            .map(({ code, concentration, subIndexes = [] }) => {
+                const { value, unit } = concentration;
+                const pollutantType = this.#Config.Pollutants[code];
+                const indexObj = subIndexes.find(subIndex => subIndex.code === scaleCode);
+                if (scaleCode && !indexObj) Console.warn("CreatePollutants", `No index for ${pollutantType} was found for required scale`);
+
+                const friendlyUnits = AirQuality.Config.Units.Friendly;
+                const { ugm3, mgm3, ppb, ppm } = AirQuality.Config.Units.WeatherKit;
+                switch (unit) {
+                    case friendlyUnits.MILLIGRAMS_PER_CUBIC_METER:
+                        return { pollutantType, amount: AirQuality.ConvertUnit(value, mgm3, ugm3), units: ugm3, index: scaleCode ? (indexObj?.aqi ?? -1) : undefined };
+                    case friendlyUnits.PARTS_PER_MILLION:
+                        return { pollutantType, amount: AirQuality.ConvertUnit(value, ppm, ppb), units: ppb, index: scaleCode ? (indexObj?.aqi ?? -1) : undefined };
+                    default:
+                        return { pollutantType, amount: value, units: this.#Config.Units[unit], index: scaleCode ? (indexObj?.aqi ?? -1) : undefined };
+                }
+            });
+
+        Console.info("✅ CreatePollutants");
+        return pollutants;
+    }
+
+    /**
+     * 创建 WeatherKit 格式污染物对象（v7/air/now 与 historical/air 数据源）。
+     * @link https://dev.qweather.com/docs/resource/unit/
+     * @param {Object} pollutantsObj - v7 接口返回的污染物键值对象。
+     * @returns {Array<{amount: number, pollutantType: string, units: string}>} 转换后的污染物数组。
+     */
+    #CreatePollutantsV7(pollutantsObj) {
+        Console.info("☑️ CreatePollutantsV7");
+        Console.debug(`pollutantsObj: ${JSON.stringify(pollutantsObj)}`);
+
+        const { mgm3, ugm3 } = AirQuality.Config.Units.WeatherKit;
+        const pollutants = Object.entries(pollutantsObj)
+            .map(([name, amount]) => {
+                const parsedAmount = Number.parseFloat(amount);
+                switch (name) {
+                    case "co":
+                        return {
+                            amount: AirQuality.ConvertUnit(parsedAmount ?? -1, mgm3, ugm3),
+                            pollutantType: this.#Config.Pollutants[name],
+                            units: ugm3,
+                        };
+                    case "no":
+                    case "no2":
+                    case "so2":
+                    case "o3":
+                    case "nox":
+                    case "pm25":
+                    case "pm10":
+                        return {
+                            amount: parsedAmount ?? -1,
+                            pollutantType: this.#Config.Pollutants[name],
+                            units: ugm3,
+                        };
+                    default:
+                        return null;
+                }
+            })
+            .filter(Boolean);
+
+        Console.info("✅ CreatePollutantsV7");
+        return pollutants;
+    }
+
+    async CurrentAirQuality(forcePrimaryPollutant = true) {
+        // 判断可用性：当前数据源不支持这个国家/地区
+        if (!this.#Config.Availability.AirQuality.includes(this.country)) {
+            Console.warn("CurrentAirQuality", `Unsupported country: ${this.country}`);
+            return {
+                metadata: this.#Metadata(`https://www.qweather.com/air/a/${this.latitude},${this.longitude}?from=AppleWeatherService`, undefined, true),
+                pollutants: [],
+                previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+            };
+        }
+
+        const findSupportedIndex = indexes => {
+            Console.info("☑️ findSupportedIndex");
+
+            const supportedCodes = ["cn-mee", "cn-mee-1h", "eu-eea", "us-epa", "us-epa-nc"];
+            for (const index of indexes) {
+                if (supportedCodes.includes(index.code)) {
+                    Console.info("✅ indexCodeToScale", `index.code: ${index.code}`);
+                    return index;
+                }
+            }
+
+            return {};
+        };
+
+        const indexCodeToScale = code => {
+            Console.info("☑️ indexCodeToScale", `code: ${code}`);
+
+            const { HJ6332012, EPA_NowCast, EU_EAQI } = AirQuality.Config.Scales;
+            switch (code) {
+                // We don't need calcualtion so they are same
+                case "cn-mee":
+                case "cn-mee-1h":
+                    Console.info("✅ indexCodeToScale", "HJ6332012");
+                    return HJ6332012;
+                case "us-epa":
+                case "us-epa-nc":
+                    Console.info("✅ indexCodeToScale", "EPA_NowCast");
+                    return EPA_NowCast;
+                case "eu-eea":
+                    Console.info("✅ indexCodeToScale", "EU_EAQI");
+                    return EU_EAQI;
+                default:
+                    Console.error("indexCodeToScale", "不支持的code");
+                    return {};
+            }
+        };
+
+        Console.info("☑️ CurrentAirQuality");
+        const airQualityCurrent = await this.#AirQualityCurrent();
+        if (!Array.isArray(airQualityCurrent.pollutants)) {
+            Console.error("AirQuality", "Failed to get current air quality data.");
+            return {
+                metadata: this.#Metadata(
+                    // TODO: &lang=zh
+                    `https://www.qweather.com/air/a/${this.latitude},${this.longitude}?from=AppleWeatherService`,
+                    undefined,
+                    true,
+                ),
+                pollutants: [],
+                previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+            };
+        }
+
+        const supportedIndex = findSupportedIndex(airQualityCurrent.indexes);
+        const scale = indexCodeToScale(supportedIndex?.code);
+
+        const particularAirQuality = {
+            metadata: this.#Metadata(
+                // TODO: &lang=zh
+                `https://www.qweather.com/air/a/${this.latitude},${this.longitude}?from=AppleWeatherService`,
+            ),
+            pollutants: this.#CreatePollutants(airQualityCurrent.pollutants, supportedIndex?.code),
+            previousDayComparison: AirQuality.Config.CompareCategoryIndexes.UNKNOWN,
+        };
+
+        if (!supportedIndex?.code || !scale?.categories) {
+            Console.error("AirQuality", "No supported index found", `airQualityCurrent.indexes[].code = ${JSON.stringify(airQualityCurrent.indexes?.map(({ code }) => code))}`);
+            return {
+                ...particularAirQuality,
+                index: -1,
+                isSignificant: false,
+                categoryIndex: -1,
+                primaryPollutant: "NOT_AVAILABLE",
+                scale: AirQuality.ToWeatherKitScale(AirQuality.Config.Scales.HJ6332012.weatherKitScale),
+            };
+        }
+
+        const index = Number(supportedIndex.aqi);
+        const suppliedCategoryIndex = Number.parseInt(supportedIndex.level, 10);
+        // QWeather 允许 level 为 null；此时按同一 scale 的区间回算，避免 NaN 编码成无效等级 0。
+        const categoryIndex = Number.isFinite(suppliedCategoryIndex) && suppliedCategoryIndex > 0 ? suppliedCategoryIndex : AirQuality.CategoryIndex(index, scale.categories);
+        const apiPrimaryPollutant = this.#Config.Pollutants[supportedIndex.primaryPollutant?.code] || "NOT_AVAILABLE";
+        Console.debug(`apiPrimaryPollutant: ${apiPrimaryPollutant}`);
+
+        if (!forcePrimaryPollutant && apiPrimaryPollutant === "NOT_AVAILABLE") {
+            Console.info("CurrentAirQuality", "Max index of pollutants is <= 50, primaryPollutant will be NOT_AVAILABLE.");
+        }
+
+        const airQuality = {
+            metadata: this.#Metadata(
+                // TODO: &lang=zh
+                `https://www.qweather.com/air/a/${this.latitude},${this.longitude}?from=AppleWeatherService`,
+            ),
+            categoryIndex,
+            index,
+            isSignificant: categoryIndex >= scale.categories.significantIndex,
+            ...particularAirQuality,
+            primaryPollutant: apiPrimaryPollutant,
+            scale: AirQuality.ToWeatherKitScale(scale.weatherKitScale),
+        };
+
+        if (airQuality.primaryPollutant === "NOT_AVAILABLE") {
+            const calculatedPrimaryPollutant = AirQuality.PrimaryPollutant(particularAirQuality.pollutants, scale.categories);
+            const isNotAvailable = !forcePrimaryPollutant && calculatedPrimaryPollutant.index <= 50;
+            if (isNotAvailable) {
+                Console.info("CurrentAirQuality", `Max index of pollutants ${calculatedPrimaryPollutant.pollutantType} = ${calculatedPrimaryPollutant.index} is <= 50, primaryPollutant will be set to NOT_AVAILABLE.`);
+            }
+            if (!isNotAvailable) airQuality.primaryPollutant = calculatedPrimaryPollutant.pollutantType;
+        }
+
+        Console.info("✅ CurrentAirQuality");
+        return airQuality;
+    }
+
+    async YesterdayAirQuality(locationInfo) {
+        Console.info("☑️ YesterdayAirQuality", `locationInfo ${JSON.stringify(locationInfo)}`);
+        const failedAirQuality = {
+            metadata: this.#Metadata(undefined, undefined, true),
+            categoryIndex: -1,
+            pollutants: [],
+        };
+
+        // 判断可用性：当前数据源不支持这个国家/地区
+        if (!this.#Config.Availability.AirQuality.includes(this.country)) {
+            Console.warn("YesterdayAirQuality", `Unsupported country: ${this.country}`);
+            return failedAirQuality;
+        }
+
+        // Some locationID at Hong Kong and Macau with length 9 is supported
+        if (!locationInfo || locationInfo.iso === "TW" || locationInfo.id.length !== 9) {
+            Console.error("YesterdayAirQuality", "Unsupported location");
+            return failedAirQuality;
+        }
+
+        const historicalAir = await this.#HistoricalAir(locationInfo.id);
+        if (!historicalAir.airHourly) {
+            Console.error("YesterdayAirQuality", `Failed to get HistoricalAir(${locationInfo.id})`);
+            return failedAirQuality;
+        }
+
+        const hour = new Date().getHours();
+        const categoryIndex = Number.parseInt(historicalAir.airHourly[hour].level, 10);
+        const index = Number.parseInt(historicalAir.airHourly[hour].aqi, 10);
+        const pollutants = this.#CreatePollutantsV7(historicalAir.airHourly[hour]);
+        Console.debug(`hour: ${hour}`, `index: ${index}`);
+
+        Console.info("✅ YesterdayAirQuality", `pollutants: ${JSON.stringify(pollutants)}`, `categoryIndex: ${categoryIndex}`);
+        return {
+            metadata: this.#Metadata(historicalAir.fxLink),
+            categoryIndex,
+            index,
+            pollutants,
+            primaryPollutant: this.#Config.Pollutants[historicalAir.airHourly[hour].primary] || "NOT_AVAILABLE",
+            scale: AirQuality.ToWeatherKitScale(AirQuality.Config.Scales.HJ6332012.weatherKitScale),
+        };
+    }
+
+    #ConvertTimeStamp(fxDate, time) {
+        const dateTime = `${fxDate}T${time}:00+08:00`;
+        return (new Date(dateTime).getTime() / 1000) | 0;
+    }
+
+    #DateISOString(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+    }
+
+    #SplitWeatherAlertGuidelines(instruction) {
+        return String(instruction ?? "")
+            .split(/\r?\n/)
+            .map(line => line.replace(/^\s*\d+[.、]\s*/, "").trim())
+            .filter(Boolean);
+    }
+
+    /**
+     * 解码 QWeather 灾害预警页面中的 HTML 文本。
+     * Decode HTML text from a QWeather severe-weather page.
+     * @param {string} value HTML 文本 / HTML text.
+     * @returns {string} 纯文本 / Plain text.
+     */
+    static #DecodeWeatherAlertPageHTML(value) {
+        const normalized = String(value ?? "")
+            .replace(/<br\s*\/?\s*>/gi, "\n")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;|&#160;/gi, " ")
+            .replace(/&apos;/gi, "&#39;")
+            .replace(/&#(\d+);/g, (_, number) => String.fromCodePoint(Number(number)))
+            .replace(/&#x([0-9a-f]+);/gi, (_, number) => String.fromCodePoint(Number.parseInt(number, 16)));
+        return Lodash.unescape(normalized)
+            .replace(/\r/g, "")
+            .replace(/[ \t]+\n/g, "\n")
+            .replace(/\n[ \t]+/g, "\n")
+            .replace(/[ \t]{2,}/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+    }
+
+    static #FirstWeatherAlertPageMatch(source, pattern, fallback = "") {
+        const match = source.match(pattern);
+        return match ? QWeather.#DecodeWeatherAlertPageHTML(match[1]) : fallback;
+    }
+
+    static #ParseWeatherAlertPageHeadline(description) {
+        const title = String(description ?? "").trim();
+        const chinese = title.match(/^(.+?)发布\s*[:：]?\s*(.+)$/);
+        if (chinese?.[1] && chinese?.[2]) return { eventName: chinese[2].trim(), source: chinese[1].trim() };
+
+        const cap = title.match(/^(.+?)\s+issued\b[\s\S]*\s+by\s+(.+)$/i);
+        if (cap?.[1] && cap?.[2]) return { eventName: cap[1].trim(), source: cap[2].trim() };
+
+        const issued = title.match(/^(.+?)\s+issued\b\s*[:：]?\s*(.+)$/i);
+        if (issued?.[1] && issued?.[2]) {
+            const context = issued[2].trim();
+            const capContext = /^(?:for\b|\d{1,2}[/:.-]|\p{L}+\s+(?:\d{1,2}\b|at\b|until\b))/iu.test(context);
+            return capContext ? { eventName: issued[1].trim(), source: "" } : { eventName: context, source: issued[1].trim() };
+        }
+
+        const issues = title.match(/^(.+?)\s+issues?\b\s*[:：]?\s*(.+)$/i);
+        if (issues?.[1] && issues?.[2]) return { eventName: issues[2].trim(), source: issues[1].trim() };
+        return { eventName: title, source: "" };
+    }
+}
+
+/**
+ * 从来源页面提取的预警记录。
+ * Alert record extracted from a source page.
+ * @typedef {{
+ *     areaId?: string,
+ *     areaName?: string,
+ *     certainty?: string,
+ *     description: string,
+ *     effectiveTime?: string,
+ *     eventEndTime?: string,
+ *     eventOnsetTime?: string,
+ *     expireTime?: string,
+ *     guidelines: string[],
+ *     identifier?: string,
+ *     importance?: string,
+ *     issuedTime: string,
+ *     message: string,
+ *     eventName?: string,
+ *     phenomenon?: string,
+ *     responses?: string[],
+ *     reportedAt: string,
+ *     significance?: string,
+ *     source?: string,
+ *     severity: "unknown" | "extreme" | "severe" | "moderate" | "minor",
+ *     standard: string,
+ *     token?: string,
+ *     urgency?: string,
+ * }} ExtractedWeatherAlert
+ */
+
+/**
+ * 从来源页面提取的预警集合。
+ * Alert collection extracted from a source page.
+ * @typedef {{
+ *     alerts: ExtractedWeatherAlert[],
+ *     areaName: string,
+ *     source: string,
+ * }} ExtractedWeatherAlerts
+ */
+
+/**
+ * WeatherAlert 构造上下文。
+ * WeatherAlert construction context.
+ * @typedef {{
+ *     attributionUrl: URL | string,
+ *     countryCode?: string,
+ *     eventSource?: string,
+ *     identifier: string,
+ *     language: string,
+ * }} WeatherAlertContext
+ */
+
+/**
+ * WeatherKit REST WeatherAlert。
+ * WeatherKit REST WeatherAlert.
+ * @typedef {{
+ *     areaId?: string,
+ *     areaName?: string,
+ *     attributionURL: string,
+ *     certainty: string,
+ *     countryCode: string,
+ *     description: string,
+ *     detailsUrl: string,
+ *     effectiveTime: string,
+ *     eventEndTime?: string,
+ *     eventOnsetTime?: string,
+ *     eventSource: string,
+ *     expireTime: string,
+ *     id: string,
+ *     importance?: string,
+ *     issuedTime: string,
+ *     reportedAt: string,
+ *     messages: Array<{language: string, text: string}>,
+ *     name: "WeatherAlert",
+ *     precedence: number,
+ *     phenomenon?: string,
+ *     responses: string[],
+ *     significance?: string,
+ *     severity: string,
+ *     source: string,
+ *     token?: string,
+ *     urgency: string,
+ * }} WeatherAlert
+ */
+
+/**
+ * WeatherKit REST WeatherAlert 集合转换器。
+ * WeatherKit REST WeatherAlert collection converter.
+ */
+class WeatherAlerts {
+    /**
+     * 将新的来源预警数组合并到原始 Apple 预警数组。
+     * Merge new source alerts into the original Apple alert array.
+     * 来源完整标题优先；其他字段只补空值 / unknown，不改 url，也不新增 alert。
+     * Prefer the complete provider title; only fill empty / unknown values for other fields without changing URLs or adding alerts.
+     * @param {array} to - 原始 Apple 预警数组
+     * @param {array} from - 新的来源预警数组
+     * @returns {array} 原始 Apple 预警数组
+     */
+    static mergeAlerts(to = [], from = []) {
+        if (!Array.isArray(to) || !Array.isArray(from)) return to;
+        if (!to.length || !from.length) return to;
+        WeatherAlerts.#LogMergeAlertsStart(to, from);
+        const usedSourceAlertIndexes = new Set();
+        for (let appleAlertIndex = 0; appleAlertIndex < to.length; appleAlertIndex++) {
+            const appleAlert = to[appleAlertIndex];
+            const sourceAlertIndex = WeatherAlerts.#FindSourceAlert(appleAlert, from, usedSourceAlertIndexes, appleAlertIndex);
+            WeatherAlerts.#LogMergeAlertMatch(appleAlert, from, usedSourceAlertIndexes, appleAlertIndex, sourceAlertIndex);
+            if (!appleAlert || sourceAlertIndex < 0 || !from[sourceAlertIndex]) {
+                WeatherAlerts.#LogMergeAlertSkip(appleAlertIndex);
+                continue;
+            }
+            usedSourceAlertIndexes.add(sourceAlertIndex);
+            WeatherAlerts.#FillAlert(appleAlert, from[sourceAlertIndex], appleAlertIndex, sourceAlertIndex);
+        }
+
+        return to;
+    }
+
+    static #FillAlert(appleAlert, sourceAlert, appleAlertIndex, sourceAlertIndex) {
+        let before;
+        if (WeatherAlerts.#IsDebug()) before = WeatherAlerts.#WeatherAlertDebugSnapshot(appleAlert, appleAlertIndex);
+        const sourceExpireTime = sourceAlert.expireTime === "9999-12-31T23:59:59Z" ? undefined : sourceAlert.expireTime;
+        WeatherAlerts.#FillText(appleAlert, "areaId", sourceAlert.areaId);
+        WeatherAlerts.#FillText(appleAlert, "areaName", sourceAlert.areaName);
+        WeatherAlerts.#FillTime(appleAlert, "effectiveTime", sourceAlert.effectiveTime ?? sourceAlert.issuedTime);
+        WeatherAlerts.#FillTime(appleAlert, "eventOnsetTime", sourceAlert.eventOnsetTime ?? sourceAlert.effectiveTime ?? sourceAlert.issuedTime ?? appleAlert.effectiveTime ?? appleAlert.issuedTime);
+        WeatherAlerts.#FillTime(appleAlert, "eventEndTime", sourceAlert.eventEndTime ?? sourceExpireTime ?? appleAlert.expireTime);
+        WeatherAlerts.#FillTime(appleAlert, "expireTime", sourceExpireTime ?? sourceAlert.eventEndTime);
+        WeatherAlerts.#FillTime(appleAlert, "issuedTime", sourceAlert.issuedTime ?? sourceAlert.effectiveTime);
+        WeatherAlerts.#FillDescription(appleAlert, sourceAlert);
+        WeatherAlerts.#FillText(appleAlert, "source", sourceAlert.source);
+        WeatherAlerts.#FillEnum(appleAlert, "phenomenon", sourceAlert.phenomenon);
+        WeatherAlerts.#FillText(appleAlert, "token", sourceAlert.token);
+        WeatherAlerts.#FillResponses(appleAlert, sourceAlert);
+        WeatherAlerts.#FillFlatBufferEnum(appleAlert, "severity", sourceAlert.severity, ["UNKNOWN"]);
+        WeatherAlerts.#FillFlatBufferEnum(appleAlert, "certainty", sourceAlert.certainty);
+        WeatherAlerts.#FillFlatBufferEnum(appleAlert, "importance", sourceAlert.importance || WeatherAlerts.#ImportanceFromSeverity(sourceAlert.severity));
+        WeatherAlerts.#FillFlatBufferEnum(appleAlert, "significance", sourceAlert.significance);
+        WeatherAlerts.#FillFlatBufferEnum(appleAlert, "urgency", sourceAlert.urgency);
+        if (before) WeatherAlerts.#LogMergeAlertPatch(before, appleAlert, appleAlertIndex, sourceAlertIndex);
+    }
+
+    static #ToUnixSeconds(value) {
+        if (value == null || value === "") return undefined;
+        if (typeof value === "number") return value;
+        const time = new Date(value).getTime();
+        return Number.isNaN(time) ? undefined : Math.trunc(time / 1000);
+    }
+
+    static #FillText(appleAlert, key, sourceValue) {
+        if (String(appleAlert?.[key] ?? "").trim()) return;
+        const value = String(sourceValue ?? "").trim();
+        if (value) appleAlert[key] = value;
+    }
+
+    static #FillDescription(appleAlert, sourceAlert) {
+        const sourceTitle = String(sourceAlert?.description ?? "").trim();
+        const value = WeatherAlerts.#NormalizeWeatherAlertTitle(sourceAlert?.description, sourceAlert?.eventName);
+        if (!value) return;
+        const current = String(appleAlert?.description ?? "").trim();
+        if (sourceTitle || !current || current.toLowerCase() === "other" || current.toLowerCase() === "unknown") appleAlert.description = value;
+    }
+
+    static #FillEnum(appleAlert, key, sourceValue, fallbackValues = ["unknown", "Other"]) {
+        const current = String(appleAlert?.[key] ?? "").trim();
+        const currentFallback = fallbackValues.some(value => current.toLowerCase() === String(value).toLowerCase());
+        if (current && !currentFallback) return;
+        const value = String(sourceValue ?? "").trim();
+        if (value) appleAlert[key] = value;
+    }
+
+    static #FillFlatBufferEnum(appleAlert, key, sourceValue, fallbackValues = ["UNKNOWN"]) {
+        const value = WeatherAlerts.#FlatBufferWeatherAlertEnum(key, sourceValue);
+        if (value) WeatherAlerts.#FillEnum(appleAlert, key, value, fallbackValues);
+    }
+
+    static #FillTime(appleAlert, key, sourceValue) {
+        if (appleAlert?.[key]) return;
+        const value = WeatherAlerts.#ToUnixSeconds(sourceValue);
+        if (value !== undefined) appleAlert[key] = value;
+    }
+
+    static #FillResponses(appleAlert, sourceAlert) {
+        if (Array.isArray(appleAlert?.responses) && appleAlert.responses.length) return;
+        const responses = WeatherAlerts.#BuildFlatBufferResponses(sourceAlert.guidelines, sourceAlert.responses);
+        if (responses.length) appleAlert.responses = responses;
+    }
+
+    static #BuildFlatBufferResponses(guidelines, preferredResponses = []) {
+        const responses = [];
+        for (const response of WeatherAlerts.#BuildResponses(guidelines, preferredResponses)) {
+            const value = WeatherAlerts.#FlatBufferWeatherAlertEnum("responses", response);
+            if (value && !responses.includes(value)) responses.push(value);
+        }
+        return responses;
+    }
+
+    static #FindSourceAlert(appleAlert, sourceAlerts, usedSourceAlertIndexes, appleAlertIndex) {
+        let bestIndex = -1;
+        let bestScore = 0;
+        for (let index = 0; index < sourceAlerts.length; index++) {
+            if (usedSourceAlertIndexes.has(index)) continue;
+            const score = WeatherAlerts.#ScoreSourceAlert(appleAlert, sourceAlerts[index]);
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = index;
+            }
+        }
+        if (bestScore >= 30) return bestIndex;
+        if (appleAlertIndex < sourceAlerts.length && !usedSourceAlertIndexes.has(appleAlertIndex)) return appleAlertIndex;
+        return -1;
+    }
+
+    static #IsDebug() {
+        return Console.logLevel === "DEBUG" || Console.logLevel === "ALL";
+    }
+
+    static #LogMergeAlertsStart(to, from) {
+        if (!WeatherAlerts.#IsDebug()) return;
+        Console.debug(
+            "mergeAlerts",
+            `appleAlertCount: ${to.length}`,
+            `sourceAlertCount: ${from.length}`,
+            `appleAlerts: ${JSON.stringify(to.map((alert, index) => WeatherAlerts.#WeatherAlertDebugSnapshot(alert, index)), null, 2)}`,
+            `sourceAlerts: ${JSON.stringify(from.map((alert, index) => WeatherAlerts.#WeatherAlertDebugSnapshot(alert, index)), null, 2)}`,
+        );
+    }
+
+    static #LogMergeAlertMatch(appleAlert, sourceAlerts, usedSourceAlertIndexes, appleAlertIndex, sourceAlertIndex) {
+        if (!WeatherAlerts.#IsDebug()) return;
+        const candidates = WeatherAlerts.#SourceAlertCandidates(appleAlert, sourceAlerts, usedSourceAlertIndexes);
+        Console.debug(
+            "mergeAlerts",
+            `appleAlertIndex: ${appleAlertIndex}`,
+            `selectedSourceAlertIndex: ${sourceAlertIndex}`,
+            `selectedScore: ${candidates[0]?.score ?? 0}`,
+            `usedSameIndexFallback: ${sourceAlertIndex === appleAlertIndex && (candidates[0]?.score ?? 0) < 30}`,
+            `candidates: ${JSON.stringify(candidates, null, 2)}`,
+            `appleAlert: ${JSON.stringify(WeatherAlerts.#WeatherAlertDebugSnapshot(appleAlert, appleAlertIndex), null, 2)}`,
+            `sourceAlert: ${JSON.stringify(sourceAlertIndex >= 0 ? WeatherAlerts.#WeatherAlertDebugSnapshot(sourceAlerts[sourceAlertIndex], sourceAlertIndex) : undefined, null, 2)}`,
+        );
+    }
+
+    static #LogMergeAlertSkip(appleAlertIndex) {
+        if (!WeatherAlerts.#IsDebug()) return;
+        Console.debug("mergeAlerts", `appleAlertIndex: ${appleAlertIndex}`, "skip: no matched source alert");
+    }
+
+    static #LogMergeAlertPatch(before, appleAlert, appleAlertIndex, sourceAlertIndex) {
+        if (!WeatherAlerts.#IsDebug()) return;
+        const after = WeatherAlerts.#WeatherAlertDebugSnapshot(appleAlert, appleAlertIndex);
+        Console.debug(
+            "mergeAlerts",
+            `appleAlertIndex: ${appleAlertIndex}`,
+            `sourceAlertIndex: ${sourceAlertIndex}`,
+            `changed: ${JSON.stringify(WeatherAlerts.#WeatherAlertDebugChanges(before, after), null, 2)}`,
+            `after: ${JSON.stringify(after, null, 2)}`,
+        );
+    }
+
+    static #SourceAlertCandidates(appleAlert, sourceAlerts, usedSourceAlertIndexes) {
+        const candidates = [];
+        for (let index = 0; index < sourceAlerts.length; index++) {
+            if (usedSourceAlertIndexes.has(index)) continue;
+            candidates.push({
+                index,
+                score: WeatherAlerts.#ScoreSourceAlert(appleAlert, sourceAlerts[index]),
+                sourceAlert: WeatherAlerts.#WeatherAlertDebugSnapshot(sourceAlerts[index], index),
+            });
+        }
+        return candidates.sort((a, b) => b.score - a.score);
+    }
+
+    static #ScoreSourceAlert(appleAlert, sourceAlert) {
+        let score = 0;
+        const appleAreaId = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.areaId);
+        const sourceAreaId = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.areaId);
+        const appleAreaName = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.areaName);
+        const sourceAreaName = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.areaName);
+        const appleToken = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.token);
+        const sourceToken = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.token);
+        const appleDescription = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.description);
+        const sourceDescription = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.description);
+        const sourceEventName = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.eventName);
+        const sourceMessage = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.message);
+        const applePhenomenon = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.phenomenon);
+        const sourcePhenomenon = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.phenomenon);
+        const appleSeverity = WeatherAlerts.#NormalizeAlertMatchText(appleAlert?.severity);
+        const sourceSeverity = WeatherAlerts.#NormalizeAlertMatchText(sourceAlert?.severity);
+
+        if (appleAreaId && sourceAreaId && appleAreaId === sourceAreaId) score += 60;
+        if (appleAreaName && sourceAreaName && appleAreaName === sourceAreaName) score += 40;
+        if (appleToken && sourceToken && appleToken === sourceToken) score += 50;
+        if (appleDescription && sourceEventName && appleDescription === sourceEventName) score += 50;
+        if (appleDescription && sourcePhenomenon && appleDescription === sourcePhenomenon) score += 50;
+        if (appleDescription && sourceDescription && sourceDescription.includes(appleDescription)) score += 40;
+        if (appleDescription && sourceMessage && sourceMessage.includes(appleDescription)) score += 30;
+        if (applePhenomenon && sourcePhenomenon && (applePhenomenon === sourcePhenomenon || sourcePhenomenon.includes(applePhenomenon))) score += 30;
+        if (appleSeverity && sourceSeverity && appleSeverity === sourceSeverity && appleSeverity !== "unknown") score += 10;
+        return score;
+    }
+
+    static #NormalizeAlertMatchText(value) {
+        return String(value ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace(/预警信号|预警|警报|报告/g, "");
+    }
+
+    static #WeatherAlertDebugSnapshot(alert, index) {
+        return {
+            index,
+            id: alert?.id ?? alert?.identifier,
+            areaId: alert?.areaId,
+            areaName: alert?.areaName,
+            description: alert?.description,
+            eventName: alert?.eventName,
+            message: alert?.message,
+            token: alert?.token,
+            phenomenon: alert?.phenomenon,
+            severity: alert?.severity,
+            significance: alert?.significance,
+            urgency: alert?.urgency,
+            certainty: alert?.certainty,
+            importance: alert?.importance,
+            source: alert?.source,
+            effectiveTime: alert?.effectiveTime,
+            eventOnsetTime: alert?.eventOnsetTime,
+            eventEndTime: alert?.eventEndTime,
+            expireTime: alert?.expireTime,
+            issuedTime: alert?.issuedTime,
+            responses: alert?.responses,
+            guidelines: alert?.guidelines,
+        };
+    }
+
+    static #WeatherAlertDebugChanges(before, after) {
+        const changed = {};
+        for (const key of Object.keys(after)) {
+            if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed[key] = { before: before[key], after: after[key] };
+        }
+        return changed;
+    }
+
+    /**
+     * 将提取后的来源记录构造成 WeatherKit REST WeatherAlert 数组。
+     * Build the /api/v1/weatherAlerts JSON array consumed by Apple alertDetails.
+     * @param {ExtractedWeatherAlerts} extracted 标准化后的来源数据；alert.source 映射官方页面“签发者”，areaName 映射“受影响区域”。
+     * @param {WeatherAlertContext} context 构造上下文；identifier 用于稳定 UUID/areaId，attributionUrl 用于“查看警报来源”链接。
+     * @returns {WeatherAlert[]} WeatherAlert 数组 / WeatherAlert array.
+     */
+    static Build(extracted, context) {
+        const contextAreaId = context.identifier.match(/-(\d+)$/)?.[1];
+        return extracted.alerts.map((alert, precedence) => {
+            const uid = WeatherAlerts.#StableUUID(`${context.identifier}:${alert.identifier ?? precedence}`);
+            const messages = [];
+            for (const text of [alert.message, alert.standard, alert.guidelines?.filter(Boolean).join("\n")]) {
+                if (text) messages.push({ language: context.language, text });
+            }
+            if (!messages.length && alert.description) messages.push({ language: context.language, text: alert.description });
+            const responses = WeatherAlerts.#BuildResponses(alert.guidelines, alert.responses);
+            const areaId = alert.areaId || contextAreaId;
+            const areaName = alert.areaName || extracted.areaName;
+            const effectiveTime = alert.effectiveTime ?? alert.issuedTime;
+            const expireTime = alert.expireTime ?? "9999-12-31T23:59:59Z";
+            const eventOnsetTime = alert.eventOnsetTime ?? effectiveTime;
+            const eventEndTime = alert.eventEndTime ?? (alert.expireTime ? expireTime : undefined);
+            const source = alert.source || extracted.source || "";
+            const importance = alert.importance || WeatherAlerts.#ImportanceFromSeverity(alert.severity);
+            const phenomenon = alert.phenomenon;
+            const description = WeatherAlerts.#NormalizeWeatherAlertTitle(alert.description, alert.eventName);
+            return {
+                id: uid,
+                ...(areaId ? { areaId } : {}),
+                ...(areaName ? { areaName } : {}),
+                attributionURL: context.attributionUrl.toString(),
+                certainty: alert.certainty || "unknown",
+                countryCode: context.countryCode ?? "",
+                description,
+                detailsUrl: `#${uid}`,
+                effectiveTime,
+                ...(eventEndTime ? { eventEndTime } : {}),
+                ...(eventOnsetTime ? { eventOnsetTime } : {}),
+                eventSource: context.eventSource ?? context.countryCode ?? "",
+                expireTime,
+                issuedTime: alert.issuedTime,
+                ...(importance ? { importance } : {}),
+                messages,
+                name: "WeatherAlert",
+                ...(phenomenon ? { phenomenon } : {}),
+                precedence,
+                responses,
+                ...(alert.significance ? { significance: alert.significance } : {}),
+                reportedAt: alert.reportedAt,
+                severity: alert.severity,
+                source,
+                ...(alert.token ? { token: alert.token } : {}),
+                urgency: alert.urgency || "unknown",
+            };
+        });
+    }
+
+    /**
+     * 根据 Apple 官方样例中的 importance 分层，从来源严重度推导重要性。
+     * Derive WeatherKit importance from source severity when upstream does not provide it.
+     * @param {string} severity 预警严重度 / Alert severity.
+     * @returns {"high" | "normal" | "low"} Apple WeatherAlert importance.
+     */
+    static #ImportanceFromSeverity(severity) {
+        switch (String(severity ?? "").trim().toLowerCase()) {
+            case "extreme":
+            case "severe":
+                return "high";
+            case "minor":
+                return "low";
+            case "moderate":
+            default:
+                return "normal";
+        }
+    }
+
+    /**
+     * 将来源防御指南压缩为 Apple 前端能识别的动作 token。
+     * Convert source defense guidance into Apple-recognized action tokens.
+     * @param {string[]} guidelines 防御指南 / Defense guidance.
+     * @returns {string[]} 动作 token / Action tokens.
+     */
+    static #BuildResponses(guidelines, preferredResponses = []) {
+        const responses = WeatherAlerts.#NormalizeResponses(preferredResponses);
+        if (responses.length) return responses;
+
+        const inferredResponses = [];
+        for (const guideline of guidelines ?? []) {
+            const response = WeatherAlerts.#ResponseFromGuideline(guideline);
+            if (response && !inferredResponses.includes(response)) inferredResponses.push(response);
+        }
+        return inferredResponses.length ? inferredResponses : (guidelines?.length ? ["monitor"] : []);
+    }
+
+    /**
+     * 标准化动作 token 列表。
+     * Normalize action token list.
+     * @param {string[]} responses 动作 token / Action tokens.
+     * @returns {string[]} 规范化后的动作 token / Normalized action tokens.
+     */
+    static #NormalizeResponses(responses) {
+        const normalized = [];
+        for (const response of responses ?? []) {
+            const token = String(response ?? "").trim();
+            if (token && !normalized.includes(token)) normalized.push(token);
+        }
+        return normalized;
+    }
+
+    /**
+     * 根据单条防御指南推断 Apple 的动作 token。
+     * Infer an Apple action token from one defense-guidance line.
+     * @param {string} guideline 防御指南 / Defense guidance.
+     * @returns {string | null} 动作 token / Action token.
+     */
+    static #ResponseFromGuideline(guideline) {
+        const text = String(guideline ?? "").trim().toLowerCase();
+        if (!text) return null;
+        const compact = text.replace(/\s+/g, "");
+
+        if (/撤离|疏散|转移|离开/.test(text) || compact.includes("evacuat")) return "evacuate";
+        if (/就地|躲避|避难|避险|避风|室内|躲到|进入室内|待在室内/.test(text) || compact.includes("takeshelter") || compact.includes("seekshelter")) return "shelter";
+        if (/执行|实施|预案|计划/.test(text) || compact.includes("execute") || compact.includes("carryout") || compact.includes("implement")) return "execute";
+        if (/准备|防范|防护|备好|做好.*准备/.test(text) || compact.includes("prepare") || compact.includes("preparations")) return "prepare";
+        if (/远离|避免|不要|切勿|勿|别/.test(text) || compact.includes("avoid") || compact.includes("stayaway") || compact.includes("keepaway") || compact.includes("donot") || compact.includes("dont")) return "avoid";
+        if (/密切关注|持续关注|关注|留意|监测|观察|跟踪/.test(text) || compact.includes("monitor") || compact.includes("watch") || compact.includes("followup")) return "monitor";
+        if (/评估|检查/.test(text) || compact.includes("assess") || compact.includes("inspect")) return "assess";
+        if (/解除|恢复正常/.test(text) || compact.includes("allclear")) return "allClear";
+        if (/无需|不需|无须/.test(text) || compact.includes("none")) return "none";
+        return null;
+    }
+
+    static #FlatBufferWeatherAlertEnum(key, value) {
+        const normalized = String(value ?? "").trim();
+        if (!normalized) return "";
+        switch (key) {
+            case "certainty":
+                return WeatherAlerts.#FlatBufferWeatherAlertCertainty(normalized);
+            case "importance":
+                return WeatherAlerts.#FlatBufferWeatherAlertImportance(normalized);
+            case "responses":
+                return WeatherAlerts.#FlatBufferWeatherAlertResponse(normalized);
+            case "severity":
+                return WeatherAlerts.#FlatBufferWeatherAlertSeverity(normalized);
+            case "significance":
+                return WeatherAlerts.#FlatBufferWeatherAlertSignificance(normalized);
+            case "urgency":
+                return WeatherAlerts.#FlatBufferWeatherAlertUrgency(normalized);
+            default:
+                return "";
+        }
+    }
+
+    static #NormalizeFlatBufferWeatherAlertEnum(value) {
+        return String(value ?? "").trim().replace(/[_\s-]+/g, "").toLowerCase();
+    }
+
+    static #FlatBufferWeatherAlertCertainty(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "observed":
+                return "OBSERVED";
+            case "likely":
+                return "LIKELY";
+            case "possible":
+                return "POSSIBLE";
+            case "unlikely":
+                return "UNLIKELY";
+            case "unknown":
+                return "UNKNOWN";
+            default:
+                return "";
+        }
+    }
+
+    static #FlatBufferWeatherAlertImportance(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "high":
+                return "HIGH";
+            case "normal":
+                return "NORMAL";
+            case "low":
+                return "LOW";
+            default:
+                return "";
+        }
+    }
+
+    static #FlatBufferWeatherAlertResponse(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "evacuate":
+                return "EVACUATE";
+            case "shelter":
+                return "SHELTER";
+            case "execute":
+                return "EXECUTE";
+            case "prepare":
+                return "PREPARE";
+            case "avoid":
+                return "AVOID";
+            case "monitor":
+                return "MONITOR";
+            case "assess":
+                return "ASSESS";
+            case "allclear":
+                return "ALL_CLEAR";
+            case "none":
+                return "NONE";
+            default:
+                return "";
+        }
+    }
+
+    static #FlatBufferWeatherAlertSeverity(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "unknown":
+                return "UNKNOWN";
+            case "extreme":
+                return "EXTREME";
+            case "severe":
+                return "SEVERE";
+            case "moderate":
+                return "MODERATE";
+            case "minor":
+                return "MINOR";
+            default:
+                return "";
+        }
+    }
+
+    static #FlatBufferWeatherAlertSignificance(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "advisory":
+                return "ADVISORY";
+            case "watch":
+                return "WATCH";
+            case "warning":
+                return "WARNING";
+            case "statement":
+                return "STATEMENT";
+            case "emergency":
+                return "EMERGENCY";
+            case "unknown":
+                return "UNKNOWN";
+            default:
+                return "";
+        }
+    }
+
+    static #FlatBufferWeatherAlertUrgency(value) {
+        switch (WeatherAlerts.#NormalizeFlatBufferWeatherAlertEnum(value)) {
+            case "immediate":
+                return "IMMEDIATE";
+            case "expected":
+                return "EXPECTED";
+            case "future":
+                return "FUTURE";
+            case "past":
+                return "PAST";
+            case "unknown":
+                return "UNKNOWN";
+            default:
+                return "";
+        }
+    }
+
+    /**
+     * 将来源标题规范化为 WeatherAlert 最终标题。
+     * Normalize a provider headline into the final WeatherAlert title.
+     * @param {string} description 预警标题 / Alert title.
+     * @param {string} eventName 本地化事件名称 / Localized event name.
+     * @returns {string} 规范化标题 / Normalized title.
+     */
+    static #NormalizeWeatherAlertTitle(description, eventName = "") {
+        const title = String(description ?? "").trim();
+        const fallback = WeatherAlerts.#TrimWeatherAlertTitle(eventName);
+        if (!title) return fallback;
+
+        const chinese = title.match(/^.+?(?:发布|更新|变更)\s*[:：]?\s*(.+)$/);
+        if (chinese?.[1]) return WeatherAlerts.#TrimWeatherAlertTitle(chinese[1]);
+
+        const issued = title.match(/^(.+?)\s+issued\b\s*[:：]?\s*(.+)$/i);
+        if (issued?.[1] && issued?.[2]) {
+            const titleBeforeIssued = WeatherAlerts.#TrimWeatherAlertTitle(issued[1]);
+            const fallbackMatchesPrefix = Boolean(fallback) && WeatherAlerts.#NormalizeAlertMatchText(fallback) === WeatherAlerts.#NormalizeAlertMatchText(titleBeforeIssued);
+            return fallbackMatchesPrefix ? fallback : WeatherAlerts.#FormatTranslatedEnglishAlertTitle(issued[2]) || fallback;
+        }
+
+        const issues = title.match(/^.+?\s+issues?\b\s*[:：]?\s*(.+)$/i);
+        return issues?.[1] ? WeatherAlerts.#FormatTranslatedEnglishAlertTitle(issues[1]) || fallback : WeatherAlerts.#TrimWeatherAlertTitle(title) || fallback;
+    }
+
+    static #FormatTranslatedEnglishAlertTitle(title) {
+        return WeatherAlerts.#TrimWeatherAlertTitle(title)
+            .replace(/^(?:a|an|the)\s+/i, "")
+            .replace(/\b\p{L}/gu, character => character.toUpperCase());
+    }
+
+    static #TrimWeatherAlertTitle(title) {
+        return String(title ?? "")
+            .trim()
+            .replace(/\s*[\[【][^\]】]+[\]】]\s*$/u, "")
+            .replace(/\s*[。．.]+\s*$/gu, "")
+            .replace(/预警信号$/u, "预警")
+            .replace(/預警信號$/u, "預警");
+    }
+
+    /**
+     * 为同一预警生成跨运行环境稳定的 UUID。
+     * Generate a stable UUID for the same alert across supported runtimes.
+     * @param {string} value UUID 输入 / UUID input.
+     * @returns {string} UUID 字符串 / UUID string.
+     */
+    static #StableUUID(value) {
+        const words = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35];
+        for (let index = 0; index < words.length; index++) {
+            for (let offset = 0; offset < value.length; offset++) {
+                words[index] ^= value.charCodeAt(offset) + index;
+                words[index] = Math.imul(words[index], 0x01000193);
+            }
+        }
+        const bytes = new Uint8Array(16);
+        const view = new DataView(bytes.buffer);
+        for (let index = 0; index < words.length; index++) view.setUint32(index * 4, words[index]);
+        bytes[6] = (bytes[6] & 0x0f) | 0x50;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+}
+
+var database = {
+    WeatherKit: {
+        Settings: {
+            // 只有插件会修改的产品允许被配置关闭；其余 Apple 数据集必须始终透传。
+            DataSets: ["airQuality", "currentWeather", "forecastDaily", "forecastHourly", "forecastNextHour", "weatherAlerts"],
+            Weather: { Replace: ["CN"], Provider: "ColorfulClouds" },
+            WeatherAlerts: { Provider: "QWeatherWeb" },
+            NextHour: { Provider: "ColorfulClouds" },
+            AirQuality: {
+                Current: { Pollutants: { Provider: "ColorfulClouds", Units: { Replace: [], Mode: "Scale" } }, Index: { Replace: ["HJ6332012"], Provider: "Calculate", ForceCNPrimaryPollutants: true } },
+                Comparison: { ReplaceWhenCurrentChange: false, Yesterday: { PollutantsProvider: "QWeather", IndexProvider: "ColorfulCloudsUS" } },
+                Calculate: { Algorithm: "EU_EAQI", AllowOverRange: true },
+            },
+            API: { WAQI: { Token: null }, QWeather: { Token: "bdd98ec1d87747f3a2e8b1741a5af796", Host: "devapi.qweather.com" }, ColorfulClouds: { Token: "Y2FpeXVuX25vdGlmeQ==" } },
+        },
+        Configs: {
+            Availability: {
+                v1: ["currentWeather", "dailyForecast", "hourlyForecast", "minuteForecast", "weatherAlerts"],
+                v2: ["airQuality", "currentWeather", "forecastDaily", "forecastHourly", "forecastPeriodic", "historicalComparisons", "weatherChanges", "forecastNextHour", "weatherAlerts", "weatherAlertNotifications", "news"],
+            },
+            DataSets: {
+                airQuality: "airQuality",
+                currentWeather: "currentWeather",
+                forecastDaily: "forecastDaily",
+                forecastHourly: "forecastHourly",
+                forecastNextHour: "forecastNextHour",
+                news: "news",
+                weatherAlerts: "weatherAlerts",
+                weatherChange: "weatherChanges",
+                trendComparison: "historicalComparisons",
+                locationInfo: "locationInfo",
+            },
+        },
+    },
+    Default: {
+        Settings: { LogLevel: "WARN" },
+        Configs: {
+            Storefront: {
+                AE: "143481",
+                AF: "143610",
+                AG: "143540",
+                AI: "143538",
+                AL: "143575",
+                AM: "143524",
+                AO: "143564",
+                AR: "143505",
+                AT: "143445",
+                AU: "143460",
+                AZ: "143568",
+                BA: "143612",
+                BB: "143541",
+                BD: "143490",
+                BE: "143446",
+                BF: "143578",
+                BG: "143526",
+                BH: "143559",
+                BJ: "143576",
+                BM: "143542",
+                BN: "143560",
+                BO: "143556",
+                BR: "143503",
+                BS: "143539",
+                BT: "143577",
+                BW: "143525",
+                BY: "143565",
+                BZ: "143555",
+                CA: "143455",
+                CD: "143613",
+                CG: "143582",
+                CH: "143459",
+                CI: "143527",
+                CL: "143483",
+                CM: "143574",
+                CN: "143465",
+                CO: "143501",
+                CR: "143495",
+                CV: "143580",
+                CY: "143557",
+                CZ: "143489",
+                DE: "143443",
+                DK: "143458",
+                DM: "143545",
+                DO: "143508",
+                DZ: "143563",
+                EC: "143509",
+                EE: "143518",
+                EG: "143516",
+                ES: "143454",
+                FI: "143447",
+                FJ: "143583",
+                FM: "143591",
+                FR: "143442",
+                GA: "143614",
+                GB: "143444",
+                GD: "143546",
+                GF: "143615",
+                GH: "143573",
+                GM: "143584",
+                GR: "143448",
+                GT: "143504",
+                GW: "143585",
+                GY: "143553",
+                HK: "143463",
+                HN: "143510",
+                HR: "143494",
+                HU: "143482",
+                ID: "143476",
+                IE: "143449",
+                IL: "143491",
+                IN: "143467",
+                IQ: "143617",
+                IS: "143558",
+                IT: "143450",
+                JM: "143511",
+                JO: "143528",
+                JP: "143462",
+                KE: "143529",
+                KG: "143586",
+                KH: "143579",
+                KN: "143548",
+                KP: "143466",
+                KR: "143466",
+                KW: "143493",
+                KY: "143544",
+                KZ: "143517",
+                TC: "143552",
+                TD: "143581",
+                TJ: "143603",
+                TH: "143475",
+                TM: "143604",
+                TN: "143536",
+                TO: "143608",
+                TR: "143480",
+                TT: "143551",
+                TW: "143470",
+                TZ: "143572",
+                LA: "143587",
+                LB: "143497",
+                LC: "143549",
+                LI: "143522",
+                LK: "143486",
+                LR: "143588",
+                LT: "143520",
+                LU: "143451",
+                LV: "143519",
+                LY: "143567",
+                MA: "143620",
+                MD: "143523",
+                ME: "143619",
+                MG: "143531",
+                MK: "143530",
+                ML: "143532",
+                MM: "143570",
+                MN: "143592",
+                MO: "143515",
+                MR: "143590",
+                MS: "143547",
+                MT: "143521",
+                MU: "143533",
+                MV: "143488",
+                MW: "143589",
+                MX: "143468",
+                MY: "143473",
+                MZ: "143593",
+                NA: "143594",
+                NE: "143534",
+                NG: "143561",
+                NI: "143512",
+                NL: "143452",
+                NO: "143457",
+                NP: "143484",
+                NR: "143606",
+                NZ: "143461",
+                OM: "143562",
+                PA: "143485",
+                PE: "143507",
+                PG: "143597",
+                PH: "143474",
+                PK: "143477",
+                PL: "143478",
+                PT: "143453",
+                PW: "143595",
+                PY: "143513",
+                QA: "143498",
+                RO: "143487",
+                RS: "143500",
+                RU: "143469",
+                RW: "143621",
+                SA: "143479",
+                SB: "143601",
+                SC: "143599",
+                SE: "143456",
+                SG: "143464",
+                SI: "143499",
+                SK: "143496",
+                SL: "143600",
+                SN: "143535",
+                SR: "143554",
+                ST: "143598",
+                SV: "143506",
+                SZ: "143602",
+                UA: "143492",
+                UG: "143537",
+                US: "143441",
+                UY: "143514",
+                UZ: "143566",
+                VC: "143550",
+                VE: "143502",
+                VG: "143543",
+                VN: "143471",
+                VU: "143609",
+                XK: "143624",
+                YE: "143571",
+                ZA: "143472",
+                ZM: "143622",
+                ZW: "143605",
+            },
+        },
+    },
+};
+
+function parseWeatherKitURL(url = new URL($request.url)) {
+    Console.info("☑️ parseWeatherKitURL");
+    const result = {
+        version: undefined,
+        language: undefined,
+        scale: undefined,
+        latitude: undefined,
+        longitude: undefined,
+        country: undefined,
+        dataSets: [],
+    };
+    switch (url.pathname) {
+        case "/api/v1/weatherAlerts": {
+            const coordinates = url.searchParams
+                .get("ids")
+                ?.trim()
+                .match(/^(?<latitude>-?(?:\d+(?:\.\d+)?|\.\d+)),(?<longitude>-?(?:\d+(?:\.\d+)?|\.\d+))$/)?.groups;
+            result.version = "v1";
+            result.language = url.searchParams.get("lang")?.trim() || "zh-CN";
+            result.country = url.searchParams.get("country")?.toUpperCase() || "CN";
+            if (coordinates) {
+                const latitude = Number(coordinates.latitude);
+                const longitude = Number(coordinates.longitude);
+                if (Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
+                    result.latitude = coordinates.latitude;
+                    result.longitude = coordinates.longitude;
+                }
+            }
+            break;
+        }
+        default: {
+            const scaleParameters = url.pathname.match(/^\/api\/(?<version>v1)\/airQualityScale\/(?<language>[A-Z0-9]+(?:-[A-Z0-9]+)*)\/(?<scale>[^/]+)$/i)?.groups;
+            if (scaleParameters) {
+                result.version = scaleParameters.version;
+                result.language = scaleParameters.language;
+                result.scale = scaleParameters.scale;
+                break;
+            }
+            const parameters = url.pathname.match(/^\/api\/(?<version>v1|v2|v3)\/(availability|weather)\/(?<locale>[A-Z0-9]+(?:-[A-Z0-9]+)*)\/(?<latitude>-?\d+\.?\d*)\/(?<longitude>-?\d+\.?\d*)$/i)?.groups;
+            const localeParts = parameters?.locale?.split("-") || [];
+            let localeCountry;
+            // BCP 47 locale 的末段只有两位字母时才视作地区，保留 zh-Hans 这类 script。
+            // Treat the final BCP 47 subtag as a region only when it contains two letters, preserving scripts such as zh-Hans.
+            if (localeParts.length > 1 && /^[A-Z]{2}$/i.test(localeParts.at(-1))) localeCountry = localeParts.pop().toUpperCase();
+            result.version = parameters?.version;
+            result.language = localeParts.join("-") || undefined;
+            result.latitude = parameters?.latitude;
+            result.longitude = parameters?.longitude;
+            result.country = url.searchParams.get("country")?.toUpperCase() || localeCountry;
+            result.dataSets = url.searchParams.get("dataSets")?.split(",") || [];
+            break;
+        }
+    }
+    Console.info("✅ parseWeatherKitURL", `🟧version: ${result.version} 🟧language: ${result.language} 🟧country: ${result.country}`, `🟧latitude: ${result.latitude} 🟧longitude: ${result.longitude}`);
+    return result;
+}
+
+/**
+ * 存储配置读取与合并结果。
+ * Merged storage result object.
+ *
+ * @typedef {object} StorageProfile
+ * @property {Record<string, any>} Settings 运行设置 / Runtime settings.
+ * @property {Record<string, any>} Configs 静态配置 / Static configs.
+ * @property {Record<string, any>} Caches 缓存数据 / Runtime caches.
+ */
+
+/**
+ * 读取并合并默认配置、持久化配置与 `$argument`。
+ * Read and merge default config, persisted config and `$argument`.
+ *
+ * 注意：`Configs` 与 `Caches` 始终按每个 profile（`names`）合并；`Settings` 的合并顺序由 `$argument.Storage` 控制（支持别名）。
+ * Note: `Configs` and `Caches` are always merged per-profile (`names`); the merge order for `Settings` is controlled by `$argument.Storage` (aliases supported).
+ *
+ * 合并来源与顺序由 `$argument.Storage` 控制（支持以下值 / 别名）：
+ * Merge source order is controlled by `$argument.Storage` (accepted values / aliases):
+ * - `Argument` / `$argument`: `database[name]` -> `PersistentStore[name]` -> `$argument`
+ * - `PersistentStore` / `BoxJs` / `boxjs` / `$persistentStore` / `undefined`（默认）：`database[name]` -> `$argument` -> `PersistentStore[name]`
+ * - `database`: 仅 `database[name]`
+ *
+ * 注意：字符串比较为精确匹配（区分大小写）。
+ *
+ * @since 2.1.3
+ * @link https://github.com/NanoCat-Me/utils/blob/main/getStorage.mjs
+ * @author VirgilClyne
+ * @param {string} key 持久化主键 / Persistent store key.
+ * @param {string|string[]|Array<string|string[]>} names 目标配置名 / Target profile names.
+ * @param {Record<string, any>} database 默认数据库 / Default database object.
+ * @returns {StorageProfile}
+ *
+ * @module getStorage
+ * @default
+ */
+function getStorage(key, names, database) {
+	if (database?.Default?.Settings?.LogLevel) Console.logLevel = database.Default.Settings.LogLevel;
+	Console.debug("☑️ getStorage");
+	names = [names].flat(Number.POSITIVE_INFINITY);
+	/***************** Default *****************/
+	const Root = { Settings: database?.Default?.Settings || {}, Configs: database?.Default?.Configs || {}, Caches: {} };
+	Console.debug("Default", `Root.Settings类型: ${typeof Root.Settings}`, `Root.Settings: ${JSON.stringify(Root.Settings)}`);
+	/***************** PersistentStore *****************/
+	// 包装为局部变量，用完释放内存
+	// BoxJs 的清空操作返回假值空字符串, 逻辑或操作符会在左侧操作数为假值时返回右侧操作数。
+	const PersistentStore = Storage.getItem(key, {});
+	if (PersistentStore) {
+		Console.debug("☑️ PersistentStore", `PersistentStore类型: ${typeof PersistentStore}`, `PersistentStore内容: ${JSON.stringify(PersistentStore || {})}`);
+		names.forEach(name => {
+			if (typeof PersistentStore?.[name]?.Settings === "string") {
+				PersistentStore[name].Settings = JSON.parse(PersistentStore[name].Settings || "{}");
+			}
+			if (typeof PersistentStore?.[name]?.Caches === "string") {
+				PersistentStore[name].Caches = JSON.parse(PersistentStore[name].Caches || "{}");
+			}
+		});
+		if (PersistentStore.LogLevel) Console.logLevel = PersistentStore.LogLevel;
+		Console.debug("✅ PersistentStore", `Root.Settings类型: ${typeof Root.Settings}`, `Root.Settings: ${JSON.stringify(Root.Settings)}`);
+	}
+	/***************** Merge *****************/
+	names.forEach(name => {
+		Lodash.merge(Root.Configs, database?.[name]?.Configs);
+		Lodash.merge(Root.Caches, PersistentStore?.[name]?.Caches);
+	});
+	switch ($argument.Storage) {
+		case "Argument":
+		case "$argument":
+			names.forEach(name => {
+				Lodash.merge(Root.Settings, database?.[name]?.Settings, PersistentStore?.[name]?.Settings);
+			});
+			Lodash.merge(Root.Settings, $argument);
+			break;
+		case "BoxJs":
+		case "boxjs":
+		case "PersistentStore":
+		case "$persistentStore":
+		case undefined:
+		default:
+			names.forEach(name => {
+				Lodash.merge(Root.Settings, database?.[name]?.Settings);
+			});
+			Lodash.merge(Root.Settings, $argument);
+			names.forEach(name => {
+				Lodash.merge(Root.Settings, PersistentStore?.[name]?.Settings);
+			});
+			break;
+		case "database":
+			names.forEach(name => {
+				Lodash.merge(Root.Settings, database?.[name]?.Settings);
+			});
+			break;
+	}
+	if (Root.Settings.LogLevel) Console.logLevel = Root.Settings.LogLevel;
+	Console.debug("✅ Merge", `Root.Settings类型: ${typeof Root.Settings}`, `Root.Settings: ${JSON.stringify(Root.Settings)}`);
+	/***************** traverseObject *****************/
+	traverseObject(Root.Settings, (key, value) => {
+		Console.debug("☑️ traverseObject", `${key}: ${typeof value}`, `${key}: ${JSON.stringify(value)}`);
+		switch (typeof value) {
+			case "string":
+				switch (value) {
+					case "true":
+					case "false":
+					case "[]":
+						value = JSON.parse(value); // 字符串转Boolean/空数组
+						break;
+					default:
+						if (value.includes(","))
+							value = value2array(value).map(item => string2number(item)); // 字符串转数组转数字
+						else value = string2number(value); // 字符串转数字
+				}
+				break;
+		}
+		return value;
+	});
+	Console.debug("✅ traverseObject", `Root.Settings类型: ${typeof Root.Settings}`, `Root.Settings: ${JSON.stringify(Root.Settings)}`);
+	Console.debug("✅ getStorage");
+	return Root;
+}
+
+/**
+ * 深度遍历对象并用回调替换叶子值。
+ * Deep-walk an object and replace leaf values using callback.
+ *
+ * @param {Record<string, any>} o 目标对象 / Target object.
+ * @param {(key: string, value: any) => any} c 处理回调 / Transformer callback.
+ * @returns {Record<string, any>}
+ */
+function traverseObject(o, c) {
+	for (const t in o) {
+		const n = o[t];
+		o[t] = "object" === typeof n && null !== n ? traverseObject(n, c) : c(t, n);
+	}
+	return o;
+}
+
+/**
+ * 将纯数字字符串转换为数字。
+ * Convert integer-like string into number.
+ *
+ * @param {string} string 输入字符串 / Input string.
+ * @returns {string|number}
+ */
+function string2number(string) {
+	if (/^\d+$/.test(string)) string = Number.parseInt(string, 10);
+	return string;
+}
+
+/**
+ * 将值包装为数组。
+ * Split value into array.
+ *
+ * @param {string|number|boolean|string[]|null|undefined} value 输入值 / Input value.
+ * @returns {(string|number|boolean)[]}
+ */
+function value2array(value) {
+	switch (typeof value) {
+		case "string":
+			return value.split(",");
+		case "number":
+		case "boolean":
+			return [value];
+		default:
+			return value || [];
+	}
+}
+
+/**
+ * Set Environment Variables
+ * @author VirgilClyne
+ * @param {String} name - Persistent Store Key
+ * @param {Array} platforms - Platform Names
+ * @param {Object} database - Default DataBase
+ * @return {Object} { Settings, Caches, Configs }
+ */
+function setENV(name, platforms, database) {
+    Console.info("☑️ Set Environment Variables");
+    const { Settings, Caches, Configs } = getStorage(name, platforms, database);
+    /***************** Settings *****************/
+    Console.info(`typeof Settings: ${typeof Settings}`, `Settings: ${JSON.stringify(Settings, null, 2)}`);
+    string2array("DataSets");
+    string2array("Weather.Replace");
+    string2array("AirQuality.Current.Index.Replace");
+    string2array("AirQuality.Current.Pollutants.Units.Replace");
+    /***************** Caches *****************/
+    //Console.debug(`typeof Caches: ${typeof Caches}`, `Caches: ${JSON.stringify(Caches)}`);
+    /***************** Configs *****************/
+    //Configs.Storefront = new Map(Configs.Storefront);
+    if (Configs.Locale) Configs.Locale = new Map(Configs.Locale);
+    if (Configs.i18n) for (const type in Configs.i18n) Configs.i18n[type] = new Map(Configs.i18n[type]);
+    Console.info("✅ Set Environment Variables");
+    return { Settings, Caches, Configs };
+
+    function string2array(path) {
+        const setting = Lodash.get(Settings, path);
+        if (!Array.isArray(setting)) Lodash.set(Settings, path, setting ? [setting] : []);
+    }
+}
+
+/***************** Processing *****************/
+
+/* WK3 b66 weather-alert codec and safe details route; derived from WeatherKit-WK3 v3.3.6 (Apache-2.0). */
+const __WK3_ALERT_TOOLS = (() => {
+/** Pure subset adapted from NSRingo/WeatherKit v3.3.2 (Apache-2.0).
+ * REST details JSON only: do not pass its lowercase enum tokens to WK3 wire.
+ * Existing provider classes intentionally remain unchanged. */
+class WK3WeatherAlerts {
+    /** No Apple authorization/cookies are forwarded to QWeather. fetchImpl may
+     * be the fork's fetch wrapper; both standard Response and body responses work.
+     * Routing must intercept region identifiers before proxying to Apple. */
+    static async FetchWeatherAlertPage(identifier, language = "zh-CN", fetchImpl = globalThis.fetch) {
+        const url = WK3WeatherAlerts.BuildWeatherAlertPageURL(identifier, language);
+        const response = await fetchImpl(url.toString(), { redirect: "error", headers: { Accept: "text/html" } });
+        const status = response.status ?? response.statusCode;
+        if (status !== 200) throw new Error("QWeather alert page unavailable");
+        const headers = response.headers;
+        const contentType = typeof headers?.get === "function"
+            ? headers.get("content-type")
+            : Object.entries(headers ?? {}).find(([name]) => name.toLowerCase() === "content-type")?.[1];
+        if (!/text\/html/i.test(contentType ?? "")) throw new TypeError("Expected QWeather HTML");
+        const html = typeof response.text === "function" ? await response.text() : response.body;
+        if (typeof html !== "string" || new TextEncoder().encode(html).length > 2 * 1024 * 1024) throw new RangeError("Invalid QWeather page size");
+        return WK3WeatherAlerts.ExtractWeatherAlertPage(html);
+    }
+
+    static async DetailsForQWeather(identifier, language = "zh-CN", fetchImpl = globalThis.fetch) {
+        const extracted = await WK3WeatherAlerts.FetchWeatherAlertPage(identifier, language, fetchImpl);
+        return WK3WeatherAlerts.Build(extracted, { identifier, language, attributionUrl: WK3WeatherAlerts.BuildWeatherAlertPageURL(identifier, language), countryCode: "CN", eventSource: "CN" });
+    }
+
+    static Build(extracted, context) {
+        const contextAreaId = context.identifier.match(/-(\d+)$/)?.[1];
+        return extracted.alerts.map((alert, precedence) => {
+            const uid = WK3WeatherAlerts.#StableUUID(`${context.identifier}:${alert.identifier ?? precedence}`);
+            const messages = [];
+            for (const text of [alert.message, alert.standard, alert.guidelines?.filter(Boolean).join("\n")]) {
+                if (text) messages.push({ language: context.language, text });
+            }
+            if (!messages.length && alert.description) messages.push({ language: context.language, text: alert.description });
+            const responses = WK3WeatherAlerts.#BuildResponses(alert.guidelines, alert.responses);
+            const areaId = alert.areaId || contextAreaId;
+            const areaName = alert.areaName || extracted.areaName;
+            const effectiveTime = alert.effectiveTime ?? alert.issuedTime;
+            const expireTime = alert.expireTime ?? "9999-12-31T23:59:59Z";
+            const eventOnsetTime = alert.eventOnsetTime ?? effectiveTime;
+            const eventEndTime = alert.eventEndTime ?? (alert.expireTime ? expireTime : undefined);
+            const source = alert.source || extracted.source || "";
+            const importance = alert.importance || WK3WeatherAlerts.#ImportanceFromSeverity(alert.severity);
+            const phenomenon = alert.phenomenon;
+            const description = WK3WeatherAlerts.#NormalizeWeatherAlertTitle(alert.description, alert.eventName);
+            return {
+                id: uid,
+                ...(areaId ? { areaId } : {}),
+                ...(areaName ? { areaName } : {}),
+                attributionURL: context.attributionUrl.toString(),
+                certainty: alert.certainty || "unknown",
+                countryCode: context.countryCode ?? "",
+                description,
+                detailsUrl: `#${uid}`,
+                effectiveTime,
+                ...(eventEndTime ? { eventEndTime } : {}),
+                ...(eventOnsetTime ? { eventOnsetTime } : {}),
+                eventSource: context.eventSource ?? context.countryCode ?? "",
+                expireTime,
+                issuedTime: alert.issuedTime,
+                ...(importance ? { importance } : {}),
+                messages,
+                name: "WeatherAlert",
+                ...(phenomenon ? { phenomenon } : {}),
+                precedence,
+                responses,
+                ...(alert.significance ? { significance: alert.significance } : {}),
+                reportedAt: alert.reportedAt,
+                severity: alert.severity,
+                source,
+                ...(alert.token ? { token: alert.token } : {}),
+                urgency: alert.urgency || "unknown",
+            };
+        });
+    }
+
+    static ParseWeatherAlertPageURL(value) {
+        try {
+            const url = new URL(value);
+            if (url.protocol !== "https:" || url.hostname !== "www.qweather.com") return undefined;
+            if (url.search !== "?from=AppleWeatherService" || url.hash) return undefined;
+            return decodeURIComponent(url.pathname).match(/^\/{1,2}(?:en\/)?severe-weather\/([^/]+)\.html$/)?.[1];
+        } catch {
+            return undefined;
+        }
+    }
+
+    static BuildWeatherAlertPageURL(identifier, language = "zh-CN", includeAppleSource = true) {
+        identifier = identifier?.trim();
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*-\d+$/.test(identifier ?? "")) throw new TypeError("Invalid QWeather location identifier");
+        const url = new URL("https://www.qweather.com");
+        url.pathname = language.toLowerCase().startsWith("en") ? `/en/severe-weather/${identifier}.html` : `/severe-weather/${identifier}.html`;
+        if (includeAppleSource) url.searchParams.set("from", "AppleWeatherService");
+        return url;
+    }
+
+    static BuildAppleAlertDetailsURL(identifier, language = "zh-CN") {
+        return `https://weatherkit.apple.com/alertDetails/index.html?lang=${encodeURIComponent(language)}&ids=${encodeURIComponent(identifier)}&party=qweather`;
+    }
+
+    static ExtractWeatherAlertPage(html) {
+        const sourceHtml = String(html ?? "");
+        let city = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(sourceHtml, /<h1[^>]*class=["'][^"']*c-submenu__location[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i);
+        if (!city) {
+            const titleText = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(sourceHtml, /<title>([\s\S]*?)<\/title>/i);
+            city = titleText.replace(/\s*(?:severe weather warning|灾害预警|天气预警).*$/i, "").trim();
+        }
+        const administration = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(sourceHtml, /<span[^>]*class=["'][^"']*c-submenu__location-adm[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+        const dataSource = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(sourceHtml, /<a[^>]*class=["'][^"']*data-source__txt[^"']*["'][^>]*>([\s\S]*?)<\/a>/i)
+            .replace(/^(?:预警数据来源|Warning data source)\s*[:：]\s*/i, "")
+            .trim();
+        const starts = Array.from(sourceHtml.matchAll(/<div[^>]*class=["']([^"']*\bc-city-warning-events\b[^"']*)["'][^>]*>/gi), match => ({
+            index: match.index,
+            contentStart: match.index + match[0].length,
+            className: match[1],
+        }));
+        const alerts = [];
+
+        for (const [index, start] of starts.entries()) {
+            let end = index + 1 < starts.length ? starts[index + 1].index : sourceHtml.length;
+            const nearby = sourceHtml.indexOf('<div class="c-city-warning-around">', start.contentStart);
+            if (nearby !== -1 && nearby < end) end = nearby;
+            const block = sourceHtml.slice(start.contentStart, end);
+            const description = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(block, /<h3[^>]*>([\s\S]*?)<\/h3>/i);
+            const issueText = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(block, /<p[^>]*>\s*((?:Issue\s+date|发布\s*日期)\s*[:：][\s\S]*?)<\/p>/i)
+                .replace(/^(?:Issue\s+date|发布\s*日期)\s*[:：]\s*/i, "")
+                .trim();
+            const message = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(block, /<p[^>]*class=["'][^"']*warning-events__txt[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
+            const standardBlock = block.match(/<div[^>]*class=["'][^"']*warning-explain[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
+            const standard = WK3WeatherAlerts.#FirstWeatherAlertPageMatch(standardBlock, /<h4[^>]*>[\s\S]*?<\/h4>\s*<p[^>]*>([\s\S]*?)<\/p>/i);
+            const guideBlock = block.match(/<div[^>]*class=["'][^"']*warning-defense__txt[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
+            const guidelines = Array.from(guideBlock.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi), match =>
+                WK3WeatherAlerts.#DecodeWeatherAlertPageHTML(match[1])
+                    .replace(/^\s*\d+[.、]\s*/, "")
+                    .trim(),
+            ).filter(Boolean);
+            const normalizedIssueText = issueText && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(issueText) ? `${issueText.replace(" ", "T")}+08:00` : issueText;
+            const issueDate = new Date(normalizedIssueText);
+            if ((!description && !message) || Number.isNaN(issueDate.getTime())) continue;
+            const headline = description || message;
+            const parsedHeadline = WK3WeatherAlerts.#ParseWeatherAlertPageHeadline(headline);
+            const source = parsedHeadline.source || dataSource || "QWeather";
+
+            const severitySource = `${start.className} ${description}`.toLowerCase();
+            let severity = "unknown";
+            switch (true) {
+                case /warning--red|红色|\bred\b/.test(severitySource):
+                    severity = "extreme";
+                    break;
+                case /warning--orange|橙色|\borange\b/.test(severitySource):
+                    severity = "severe";
+                    break;
+                case /warning--yellow|黄色|\byellow\b/.test(severitySource):
+                    severity = "moderate";
+                    break;
+                case /warning--blue|蓝色|\bblue\b/.test(severitySource):
+                    severity = "minor";
+                    break;
+            }
+
+            alerts.push({
+                description: headline,
+                ...(parsedHeadline.eventName ? { eventName: parsedHeadline.eventName } : {}),
+                guidelines,
+                issuedTime: issueDate.toISOString(),
+                message,
+                reportedAt: issueDate.toISOString(),
+                severity,
+                source,
+                standard,
+            });
+        }
+
+        return {
+            alerts,
+            areaName: city || administration,
+            source: alerts.find(alert => alert?.source)?.source || dataSource || "QWeather",
+        };
+    }
+
+    static #StableUUID(value) {
+        const words = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35];
+        for (let index = 0; index < words.length; index++) {
+            for (let offset = 0; offset < value.length; offset++) {
+                words[index] ^= value.charCodeAt(offset) + index;
+                words[index] = Math.imul(words[index], 0x01000193);
+            }
+        }
+        const bytes = new Uint8Array(16);
+        const view = new DataView(bytes.buffer);
+        for (let index = 0; index < words.length; index++) view.setUint32(index * 4, words[index]);
+        bytes[6] = (bytes[6] & 0x0f) | 0x50;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+
+    static #BuildResponses(guidelines, preferredResponses = []) {
+        const responses = WK3WeatherAlerts.#NormalizeResponses(preferredResponses);
+        if (responses.length) return responses;
+
+        const inferredResponses = [];
+        for (const guideline of guidelines ?? []) {
+            const response = WK3WeatherAlerts.#ResponseFromGuideline(guideline);
+            if (response && !inferredResponses.includes(response)) inferredResponses.push(response);
+        }
+        return inferredResponses.length ? inferredResponses : (guidelines?.length ? ["monitor"] : []);
+    }
+
+    static #ImportanceFromSeverity(severity) {
+        switch (String(severity ?? "").trim().toLowerCase()) {
+            case "extreme":
+            case "severe":
+                return "high";
+            case "minor":
+                return "low";
+            case "moderate":
+            default:
+                return "normal";
+        }
+    }
+
+    static #NormalizeWeatherAlertTitle(description, eventName = "") {
+        const title = String(description ?? "").trim();
+        const fallback = WK3WeatherAlerts.#TrimWeatherAlertTitle(eventName);
+        if (!title) return fallback;
+
+        const chinese = title.match(/^.+?(?:发布|更新|变更)\s*[:：]?\s*(.+)$/);
+        if (chinese?.[1]) return WK3WeatherAlerts.#TrimWeatherAlertTitle(chinese[1]);
+
+        const issued = title.match(/^(.+?)\s+issued\b\s*[:：]?\s*(.+)$/i);
+        if (issued?.[1] && issued?.[2]) {
+            const titleBeforeIssued = WK3WeatherAlerts.#TrimWeatherAlertTitle(issued[1]);
+            const fallbackMatchesPrefix = Boolean(fallback) && WK3WeatherAlerts.#NormalizeAlertMatchText(fallback) === WK3WeatherAlerts.#NormalizeAlertMatchText(titleBeforeIssued);
+            return fallbackMatchesPrefix ? fallback : WK3WeatherAlerts.#FormatTranslatedEnglishAlertTitle(issued[2]) || fallback;
+        }
+
+        const issues = title.match(/^.+?\s+issues?\b\s*[:：]?\s*(.+)$/i);
+        return issues?.[1] ? WK3WeatherAlerts.#FormatTranslatedEnglishAlertTitle(issues[1]) || fallback : WK3WeatherAlerts.#TrimWeatherAlertTitle(title) || fallback;
+    }
+
+    static #FirstWeatherAlertPageMatch(source, pattern, fallback = "") {
+        const match = source.match(pattern);
+        return match ? WK3WeatherAlerts.#DecodeWeatherAlertPageHTML(match[1]) : fallback;
+    }
+
+    static #DecodeWeatherAlertPageHTML(value) {
+        const normalized = String(value ?? "")
+            .replace(/<br\s*\/?\s*>/gi, "\n")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;|&#160;/gi, " ")
+            .replace(/&apos;/gi, "&#39;")
+            .replace(/&#(\d+);/g, (_, number) => String.fromCodePoint(Number(number)))
+            .replace(/&#x([0-9a-f]+);/gi, (_, number) => String.fromCodePoint(Number.parseInt(number, 16)));
+        return normalized.replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&amp;/gi, "&")
+            .replace(/\r/g, "")
+            .replace(/[ \t]+\n/g, "\n")
+            .replace(/\n[ \t]+/g, "\n")
+            .replace(/[ \t]{2,}/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+    }
+
+    static #ParseWeatherAlertPageHeadline(description) {
+        const title = String(description ?? "").trim();
+        const chinese = title.match(/^(.+?)发布\s*[:：]?\s*(.+)$/);
+        if (chinese?.[1] && chinese?.[2]) return { eventName: chinese[2].trim(), source: chinese[1].trim() };
+
+        const cap = title.match(/^(.+?)\s+issued\b[\s\S]*\s+by\s+(.+)$/i);
+        if (cap?.[1] && cap?.[2]) return { eventName: cap[1].trim(), source: cap[2].trim() };
+
+        const issued = title.match(/^(.+?)\s+issued\b\s*[:：]?\s*(.+)$/i);
+        if (issued?.[1] && issued?.[2]) {
+            const context = issued[2].trim();
+            const capContext = /^(?:for\b|\d{1,2}[/:.-]|\p{L}+\s+(?:\d{1,2}\b|at\b|until\b))/iu.test(context);
+            return capContext ? { eventName: issued[1].trim(), source: "" } : { eventName: context, source: issued[1].trim() };
+        }
+
+        const issues = title.match(/^(.+?)\s+issues?\b\s*[:：]?\s*(.+)$/i);
+        if (issues?.[1] && issues?.[2]) return { eventName: issues[2].trim(), source: issues[1].trim() };
+        return { eventName: title, source: "" };
+    }
+
+    static #NormalizeResponses(responses) {
+        const normalized = [];
+        for (const response of responses ?? []) {
+            const token = String(response ?? "").trim();
+            if (token && !normalized.includes(token)) normalized.push(token);
+        }
+        return normalized;
+    }
+
+    static #ResponseFromGuideline(guideline) {
+        const text = String(guideline ?? "").trim().toLowerCase();
+        if (!text) return null;
+        const compact = text.replace(/\s+/g, "");
+
+        if (/撤离|疏散|转移|离开/.test(text) || compact.includes("evacuat")) return "evacuate";
+        if (/就地|躲避|避难|避险|避风|室内|躲到|进入室内|待在室内/.test(text) || compact.includes("takeshelter") || compact.includes("seekshelter")) return "shelter";
+        if (/执行|实施|预案|计划/.test(text) || compact.includes("execute") || compact.includes("carryout") || compact.includes("implement")) return "execute";
+        if (/准备|防范|防护|备好|做好.*准备/.test(text) || compact.includes("prepare") || compact.includes("preparations")) return "prepare";
+        if (/远离|避免|不要|切勿|勿|别/.test(text) || compact.includes("avoid") || compact.includes("stayaway") || compact.includes("keepaway") || compact.includes("donot") || compact.includes("dont")) return "avoid";
+        if (/密切关注|持续关注|关注|留意|监测|观察|跟踪/.test(text) || compact.includes("monitor") || compact.includes("watch") || compact.includes("followup")) return "monitor";
+        if (/评估|检查/.test(text) || compact.includes("assess") || compact.includes("inspect")) return "assess";
+        if (/解除|恢复正常/.test(text) || compact.includes("allclear")) return "allClear";
+        if (/无需|不需|无须/.test(text) || compact.includes("none")) return "none";
+        return null;
+    }
+
+    static #TrimWeatherAlertTitle(title) {
+        return String(title ?? "")
+            .trim()
+            .replace(/\s*[\[【][^\]】]+[\]】]\s*$/u, "")
+            .replace(/\s*[。．.]+\s*$/gu, "")
+            .replace(/预警信号$/u, "预警")
+            .replace(/預警信號$/u, "預警");
+    }
+
+    static #NormalizeAlertMatchText(value) {
+        return String(value ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace(/预警信号|预警|警报|报告/g, "");
+    }
+
+    static #FormatTranslatedEnglishAlertTitle(title) {
+        return WK3WeatherAlerts.#TrimWeatherAlertTitle(title)
+            .replace(/^(?:a|an|the)\s+/i, "")
+            .replace(/\b\p{L}/gu, character => character.toUpperCase());
+    }
+
+}
+
+const PREFIX = "wk3_";
+const MAX_IDS = 16384, MAX_JSON_BYTES = 12000, MAX_ALERTS = 32;
+const REGION = /^[a-zA-Z0-9][a-zA-Z0-9_-]*-\d{9}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const DETAIL_KEYS = new Set([
+    "id", "areaId", "areaName", "attributionURL", "certainty", "countryCode", "description", "detailsUrl",
+    "effectiveTime", "eventEndTime", "eventOnsetTime", "eventSource", "expireTime", "issuedTime", "importance",
+    "messages", "name", "phenomenon", "precedence", "responses", "significance", "reportedAt", "severity", "source", "token", "urgency",
+]);
+
+/** Recognizes the reserved namespace, including malformed payloads, so callers
+ * can reject them locally instead of forwarding them to Apple. */
+function isNativeAlertDetailsID(ids) {
+    return typeof ids === "string" && ids.startsWith(PREFIX);
+}
+
+function languageTag(value) {
+    if (typeof value !== "string" || value.length > 64 || !/^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$/.test(value)) throw new TypeError("Invalid alert language");
+    return value;
+}
+function exactKeys(value, keys) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) throw new TypeError("Invalid native alert payload shape");
+}
+function validateDetails(details, appleID) {
+    if (!details || typeof details !== "object" || Array.isArray(details)) throw new TypeError("Invalid alert details");
+    if (Object.keys(details).some(key => !DETAIL_KEYS.has(key))) throw new TypeError("Unknown alert detail field");
+    if (details.id !== appleID || details.detailsUrl !== `#${appleID}`) throw new TypeError("Alert detail identity mismatch");
+    if (typeof details.description !== "string" || !details.description.trim() || details.description.length > 512) throw new TypeError("Invalid alert detail description");
+    if (typeof details.issuedTime !== "string" || !Number.isFinite(Date.parse(details.issuedTime))) throw new TypeError("Invalid alert detail issue time");
+    if (!new Set(["minor", "moderate", "severe", "extreme", "unknown"]).has(details.severity)) throw new TypeError("Invalid alert detail severity");
+    for (const key of DETAIL_KEYS) {
+        if (details[key] !== undefined && ["areaId", "areaName", "attributionURL", "certainty", "countryCode", "description", "detailsUrl", "effectiveTime", "eventEndTime", "eventOnsetTime", "eventSource", "expireTime", "issuedTime", "importance", "name", "phenomenon", "reportedAt", "severity", "source", "token", "urgency"].includes(key)) {
+            if (typeof details[key] !== "string") throw new TypeError("Invalid alert detail text");
+            if (details[key].length > MAX_JSON_BYTES) throw new RangeError("Native alert payload too long");
+        }
+    }
+    if (!Array.isArray(details.messages) || details.messages.length > 32) throw new TypeError("Invalid alert detail messages");
+    for (const message of details.messages) {
+        if (!message || typeof message !== "object" || Array.isArray(message)
+            || Object.keys(message).length !== 2 || typeof message.language !== "string" || message.language.length > 64
+            || typeof message.text !== "string") throw new TypeError("Invalid alert detail messages");
+        if (message.text.length > MAX_JSON_BYTES) throw new RangeError("Native alert payload too long");
+    }
+    if (!Array.isArray(details.responses) || details.responses.length > 32 || details.responses.some(response => typeof response !== "string" || response.length > 256)) throw new TypeError("Invalid alert detail responses");
+    if (!Number.isInteger(details.precedence) || details.precedence < 0 || details.precedence >= MAX_ALERTS) throw new TypeError("Invalid alert detail order");
+    return details;
+}
+
+function validatePayload(payload) {
+    exactKeys(payload, ["region", "alerts"]);
+    if (typeof payload.region !== "string" || payload.region.length > 128 || !REGION.test(payload.region)) throw new TypeError("Invalid QWeather region");
+    if (!Array.isArray(payload.alerts) || !payload.alerts.length || payload.alerts.length > MAX_ALERTS) throw new RangeError("Invalid native alert count");
+    const ids = new Set();
+    for (const alert of payload.alerts) {
+        exactKeys(alert, ["id", "description", "issuedTime", "severity", "details"]);
+        if (typeof alert.id !== "string" || !UUID.test(alert.id) || ids.has(alert.id)) throw new TypeError("Invalid or duplicate Apple UUID");
+        ids.add(alert.id);
+        if (typeof alert.description !== "string" || !alert.description.trim() || alert.description.length > 512) throw new TypeError("Invalid alert description");
+        if (!Number.isInteger(alert.issuedTime) || alert.issuedTime <= 0 || alert.issuedTime > 0xffffffff) throw new TypeError("Invalid alert issuedTime");
+        if (!Number.isInteger(alert.severity) || alert.severity < 0 || alert.severity > 255) throw new TypeError("Invalid WK3 severity");
+        validateDetails(alert.details, alert.id);
+        if (Date.parse(alert.details.issuedTime) !== alert.issuedTime * 1000) throw new TypeError("Alert detail publish time mismatch");
+        const severity = { 3: "moderate", 4: "minor" }[alert.severity];
+        if (!severity || alert.details.severity !== severity) throw new TypeError("Alert detail severity mismatch");
+    }
+    return payload;
+}
+function uuidFromBytes(bytes) {
+    if (!(Array.isArray(bytes) || bytes instanceof Uint8Array) || bytes.length !== 16 || !Array.from(bytes).every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)) throw new TypeError("Expected 16 Apple UUID bytes");
+    const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function base64url(bytes) {
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Build once from the original/enriched WK3 summaries; assign this SAME URL to
+ * the collection and every summary. The payload contains no location/auth data
+ * beyond the public region identifier and the minimum event matching fields. */
+function buildNativeAlertDetailsURL({ identifier, language = "zh-CN", alerts, matchedSources, timezone }) {
+    languageTag(language);
+    if (timezone !== undefined && (typeof timezone !== "string" || !/^[A-Za-z0-9_+/-]{1,128}$/.test(timezone))) throw new TypeError("Invalid alert timezone");
+    if (!Array.isArray(alerts) || !alerts.length || alerts.length > MAX_ALERTS || !Array.isArray(matchedSources) || matchedSources.length !== alerts.length) throw new RangeError("Invalid native alert count");
+    const payload = validatePayload({ region: identifier, alerts: alerts.map((alert, index) => {
+        const id = uuidFromBytes(alert?.id?.bytes);
+        const source = matchedSources[index];
+        if (!source || typeof source !== "object") throw new TypeError("Missing matched QWeather details");
+        const details = { ...source, id, detailsUrl: `#${id}` };
+        return { id, description: alert.description, issuedTime: alert.issuedTime, severity: alert.severity, details };
+    }) });
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    if (bytes.length > MAX_JSON_BYTES) throw new RangeError("Native alert payload too long");
+    const ids = PREFIX + base64url(bytes);
+    if (ids.length > MAX_IDS) throw new RangeError("Native alert ids too long");
+    const url = new URL("https://weatherkit.apple.com/alertDetails/index.html");
+    url.searchParams.set("lang", language);
+    url.searchParams.set("ids", ids);
+    url.searchParams.set("party", "qweather");
+    if (timezone !== undefined) url.searchParams.set("timezone", timezone);
+    return url.toString();
+}
+function parseIDs(ids) {
+    if (!isNativeAlertDetailsID(ids) || ids.length > MAX_IDS) throw new TypeError("Invalid native alert ids");
+    const encoded = ids.slice(PREFIX.length);
+    if (!/^[A-Za-z0-9_-]+$/.test(encoded) || encoded.length % 4 === 1) throw new TypeError("Invalid native alert base64url");
+    const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - encoded.length % 4) % 4));
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    if (bytes.length > MAX_JSON_BYTES || base64url(bytes) !== encoded) throw new TypeError("Invalid native alert encoding");
+    return validatePayload(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
+}
+function alertType(value) {
+    if (typeof value !== "string") return "";
+    return value.normalize("NFKC")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/(?:蓝|黄|橙|红)色?(?:预警信号|预警)$/u, "")
+        .replace(/[。.]+$/u, "");
+}
+
+/** Returns the already matched QWeather details captured when the WK3 response
+ * was rewritten. The details route performs no second network fetch, so a
+ * provider outage after a successful match cannot turn the Apple alert page
+ * blank. The bounded locator is not a signed token or authorization grant. */
+async function resolveNativeAlertDetails(ids, language = "zh-CN") {
+    const payload = parseIDs(ids);
+    languageTag(language);
+    // Paired Apple JSON / WK3: Shanghai MINOR=4; Benxi/Shenyang MODERATE=3.
+    // Other integers still have no verified mapping and are not guessed.
+    const severities = { 3: "moderate", 4: "minor" };
+    if (payload.alerts.some(alert => !Object.hasOwn(severities, alert.severity))) throw new TypeError("Unverified WK3 severity");
+    return payload.alerts.map(alert => {
+        if (alert.details.countryCode !== "CN" || alert.details.areaId !== payload.region.match(/-(\d{9})$/)?.[1]
+            || alertType(alert.description) !== alertType(alert.details.description)) throw new Error("Native alert details binding mismatch");
+        return alert.details;
+    });
+}
+
+
+/** Verified against paired Apple v3 JSON / WK3 b66 responses (2026-11-04):
+ * Shanghai wind alert and Miami Coastal Flood Statement. NOT a WK2 codec.
+ * Root slot 9; collection: metadata=0, detailsUrl=1, alerts=2.
+ * Area-name slot 2 and slots >=22 of summaries remain UNVERIFIED.
+ * Only observed enum tokens are translated. Unknown raw integers round-trip.
+ */
+const WK3_ALERTS_ROOT_SLOT = 9;
+const WK3_ALERT_ENUMS = {
+    severity: { UNKNOWN: 0, MODERATE: 3, MINOR: 4 },
+    significance: { UNKNOWN: 0, STATEMENT: 10 },
+    urgency: { UNKNOWN: 0, EXPECTED: 2 },
+    certainty: { UNKNOWN: 0, LIKELY: 2 },
+    importance: { LOW: 2 },
+    responses: { MONITOR: 7 },
+};
+const TEXT = { attributionUrl: 3, countryCode: 4, description: 5, token: 6, detailsUrl: 12, phenomenon: 13, source: 16, eventSource: 17 };
+const TIMES = { effectiveTime: 7, expireTime: 8, issuedTime: 9, eventOnsetTime: 10, eventEndTime: 11 };
+const ENUMS = { severity: 14, significance: 15, urgency: 18, certainty: 19, importance: 20 };
+const SOURCE = Symbol("WK3Alerts.originalArena");
+const uint = (v, max = 0xffffffff) => {
+    if (!Number.isInteger(v) || v < 0 || v > max) throw new RangeError("Expected unsigned wire integer");
+    return v;
+};
+function input(bytes) {
+    if (bytes instanceof ByteBuffer) return bytes.bytes().subarray(bytes.position());
+    if (!(bytes instanceof Uint8Array)) throw new TypeError("Expected Uint8Array or ByteBuffer");
+    return bytes;
+}
+function reader(bytes) {
+    const b = input(bytes), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const check = (p, n) => { if (!Number.isInteger(p) || p < 0 || p + n > b.length) throw new RangeError("Invalid WK3 offset"); };
+    const u16 = p => { check(p, 2); return v.getUint16(p, true); };
+    const u32 = p => { check(p, 4); return v.getUint32(p, true); };
+    const indirect = p => { const q = p + u32(p); check(q, 4); return q; };
+    const field = (t, i) => {
+        check(t, 4); const vt = t - v.getInt32(t, true), n = u16(vt), size = u16(vt + 2);
+        check(vt, n); check(t, size);
+        if (n < 4 || n % 2 || size < 4) throw new RangeError("Invalid WK3 table");
+        const o = 4 + i * 2 < n ? u16(vt + 4 + i * 2) : 0;
+        if (o && (o < 4 || o >= size)) throw new RangeError("Invalid WK3 field");
+        return o ? t + o : 0;
+    };
+    const string = p => {
+        if (!p) return null; const q = indirect(p), n = u32(q); check(q + 4, n + 1);
+        if (b[q + 4 + n]) throw new RangeError("Invalid WK3 string");
+        return new TextDecoder("utf-8", { fatal: true }).decode(b.subarray(q + 4, q + 4 + n));
+    };
+    const vector = (p, width) => { if (!p) return { start: 0, length: 0 }; const q = indirect(p), length = u32(q); check(q + 4, length * width); return { start: q + 4, length }; };
+    return { b, v, check, u16, u32, indirect, field, string, vector };
+}
+function collection(r) { const root = r.indirect(0), f = r.field(root, WK3_ALERTS_ROOT_SLOT); return f ? r.indirect(f) : 0; }
+function summary(r, t) {
+    const data = {};
+    const id = r.field(t, 0);
+    if (id) {
+        const f = r.field(r.indirect(id), 0), vector = r.vector(f, 1);
+        if (vector.length !== 16) throw new RangeError("Expected 16 UUID bytes");
+        data.id = { bytes: Array.from(r.b.subarray(vector.start, vector.start + 16)) };
+    } else data.id = null;
+    const area = r.field(t, 1); data.areaId = r.string(area);
+    for (const [k, i] of Object.entries(TEXT)) data[k] = r.string(r.field(t, i));
+    for (const [k, i] of Object.entries(TIMES)) { const p = r.field(t, i); data[k] = p ? r.u32(p) : 0; }
+    for (const [k, i] of Object.entries(ENUMS)) { const p = r.field(t, i); data[k] = p ? r.b[p] : 0; }
+    const responses = r.vector(r.field(t, 21), 1);
+    data.responses = Array.from(r.b.subarray(responses.start, responses.start + responses.length));
+    return data;
+}
+/** Read raw numeric enums, never WK2 symbolic mappings. Opaque source is kept
+ * for codec encoding. The input must not be mutated after decoding. */
+function decodeWK3Alerts(bytes) {
+    const r = reader(bytes), c = collection(r); if (!c) return null;
+    const vector = r.vector(r.field(c, 2), 4);
+    const data = { detailsUrl: r.string(r.field(c, 1)), alerts: Array.from({ length: vector.length }, (_, i) => summary(r, r.indirect(vector.start + i * 4))) };
+    Object.defineProperty(data, SOURCE, { value: r.b, enumerable: true });
+    return data;
+}
+function hasUnverifiedFields(r, t) {
+    const vt = t - r.v.getInt32(t, true), count = (r.u16(vt) - 4) / 2;
+    const idField = r.field(t, 0);
+    if (idField) {
+        const id = r.indirect(idField), idVtable = id - r.v.getInt32(id, true), idCount = (r.u16(idVtable) - 4) / 2;
+        if (Array.from({ length: Math.max(0, idCount - 1) }, (_, i) => r.field(id, i + 1)).some(Boolean)) return true;
+    }
+    return Boolean(r.field(t, 2)) || Array.from({ length: Math.max(0, count - 22) }, (_, i) => r.field(t, i + 22)).some(Boolean);
+}
+function encodeSummary(data) {
+    const b = new Builder(), strings = {};
+    for (const [k, i] of Object.entries({ areaId: 1, ...TEXT })) {
+        if (data[k] != null) { if (typeof data[k] !== "string") throw new TypeError(`Expected string ${k}`); strings[i] = b.createString(data[k]); }
+    }
+    let id = 0;
+    if (data.id) {
+        if (!Array.isArray(data.id.bytes) || data.id.bytes.length !== 16) throw new TypeError("Expected UUID byte array");
+        b.startVector(1, 16, 1); for (const byte of [...data.id.bytes].reverse()) b.addInt8(uint(byte, 255));
+        const vector = b.endVector(); b.startObject(1); b.addFieldOffset(0, vector, 0); id = b.endObject();
+    }
+    if (!Array.isArray(data.responses)) throw new TypeError("Expected raw responses array");
+    b.startVector(1, data.responses.length, 1);
+    for (const response of [...data.responses].reverse()) b.addInt8(uint(response, 255));
+    const responses = b.endVector();
+    b.startObject(22); b.addFieldOffset(0, id, 0);
+    for (const [i, offset] of Object.entries(strings)) b.addFieldOffset(Number(i), offset, 0);
+    for (const [k, i] of Object.entries(TIMES)) b.addFieldInt32(i, uint(data[k]), 0);
+    for (const [k, i] of Object.entries(ENUMS)) b.addFieldInt8(i, uint(data[k], 255), 0);
+    b.addFieldOffset(21, responses, 0); b.finish(b.endObject()); return b.asUint8Array();
+}
+/** Replace existing summaries only. Never invent IDs, remove/add/reorder alerts,
+ * rebuild the weather root, touch AQ, or discard unverified summary fields.
+ * Unchanged data returns the identical input view; failures throw atomically.
+ * Use in a try/catch and retain rawBody on failure. */
+function patchWK3Alerts(bytes, alerts, options = {}) {
+    const r = reader(bytes), c = collection(r);
+    if (!c) { if (alerts?.length) throw new RangeError("Apple response has no alerts collection"); return r.b; }
+    const vector = r.vector(r.field(c, 2), 4);
+    if (!Array.isArray(alerts) || alerts.length !== vector.length) throw new RangeError("Cannot add/remove WK3 alerts");
+    const replacements = [];
+    for (let i = 0; i < alerts.length; i++) {
+        const p = vector.start + i * 4, t = r.indirect(p), before = summary(r, t), after = alerts[i];
+        if (!after || JSON.stringify(after.id) !== JSON.stringify(before.id)) throw new TypeError("Cannot change WK3 alert identity/order");
+        const known = new Set(["id", "areaId", ...Object.keys(TEXT), ...Object.keys(TIMES), ...Object.keys(ENUMS), "responses"]);
+        if (Object.keys(after).some(k => !known.has(k))) throw new TypeError("Unverified WK3 alert field");
+        if (JSON.stringify(after) === JSON.stringify(before)) continue;
+        if (hasUnverifiedFields(r, t)) throw new RangeError("Unverified WK3 summary fields; preserve original");
+        replacements.push({ p, bytes: encodeSummary(after) });
+    }
+    let out = r.b;
+    for (const replacement of replacements) {
+        const start = Math.ceil(out.length / 8) * 8, next = new Uint8Array(start + replacement.bytes.length);
+        next.set(out); next.set(replacement.bytes, start);
+        new DataView(next.buffer).setUint32(replacement.p, start + new DataView(replacement.bytes.buffer, replacement.bytes.byteOffset).getUint32(0, true) - replacement.p, true);
+        out = next;
+    }
+    if (options.detailsUrl !== undefined) {
+        const p = r.field(c, 1);
+        if (!p || typeof options.detailsUrl !== "string") throw new TypeError("Expected existing collection URL field");
+        if (options.detailsUrl !== r.string(p)) {
+            const value = new TextEncoder().encode(options.detailsUrl), start = Math.ceil(out.length / 4) * 4;
+            const next = new Uint8Array(start + value.length + 5); next.set(out); next.set(value, start + 4);
+            const v = new DataView(next.buffer); v.setUint32(start, value.length, true); v.setUint32(p, start - p, true); out = next;
+        }
+    }
+    return out;
+}
+/** Conservative provider enrichment: keeps Apple identity, URLs and all
+ * non-empty fields; unsupported symbolic enums are not guessed or written.
+ * Caller supplies unambiguously matched source records in Apple array order. */
+function enrichWK3Alerts(original, matchedSources) {
+    if (!Array.isArray(matchedSources) || original.alerts.length !== matchedSources.length) throw new RangeError("Expected one matched source per Apple alert");
+    return original.alerts.map((alert, i) => {
+        const source = matchedSources[i]; if (!source) return alert;
+        const out = { ...alert };
+        if (source.description) out.description = source.description;
+        for (const key of ["source", "areaId", "phenomenon", "token"]) if (!out[key] && source[key]) out[key] = source[key];
+        for (const key of Object.keys(TIMES)) {
+            if (out[key] || source[key] == null) continue;
+            const time = typeof source[key] === "number" ? source[key] : Date.parse(source[key]) / 1000;
+            if (Number.isInteger(time) && time > 0 && time <= 0xffffffff) out[key] = time;
+        }
+        if (!out.eventEndTime && out.expireTime) out.eventEndTime = out.expireTime;
+        if (!out.eventOnsetTime && out.effectiveTime) out.eventOnsetTime = out.effectiveTime;
+        for (const key of Object.keys(ENUMS)) {
+            if (out[key]) continue;
+            const token = String(source[key] ?? "").toUpperCase(), value = WK3_ALERT_ENUMS[key][token];
+            if (value !== undefined) out[key] = value;
+        }
+        return out;
+    });
+}
+/** FlatBufferRootProcessor-compatible codec. Requires a decoded source arena;
+ * not a from-scratch weather/schema encoder. Root accessor must be slot 9. */
+class WK3AlertsTable { __init(position, bb) { this.bb_pos = position; this.bb = bb; return this; } }
+const wk3AlertsCodec = {
+    tableClass: WK3AlertsTable,
+    decode(table) {
+        // The processor passes an arena with an arbitrary child table position.
+        const source = table.bb.bytes(), wrapper = new Uint8Array(40 + source.length); wrapper.set(source, 40);
+        const v = new DataView(wrapper.buffer);
+        v.setUint32(0, 28, true); v.setUint16(4, 24, true); v.setUint16(6, 8, true); v.setUint16(26, 4, true);
+        v.setInt32(28, 24, true); v.setUint32(32, 40 + table.bb_pos - 32, true);
+        return decodeWK3Alerts(wrapper);
+    },
+    encode(builder, data) {
+        if (!data?.[SOURCE]) throw new TypeError("WK3 alerts codec requires decoded source arena");
+        const bytes = patchWK3Alerts(data[SOURCE], data.alerts, { detailsUrl: data.detailsUrl }), r = reader(bytes), c = collection(r);
+        builder.prep(8, bytes.length); builder.pad(bytes.length);
+        builder.dataBuffer().bytes().set(bytes, builder.space);
+        return builder.offset() - c;
+    },
+};
+
+function normalizedAlertType(value) {
+    return String(value ?? "")
+        .normalize("NFKC")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/(?:蓝|黄|橙|红)色?(?:预警信号|预警)$/u, "")
+        .replace(/[。．.]+$/u, "");
+}
+
+function exactSourceMatches(alert, extracted, region) {
+    const regionCode = region.match(/-(\d{9})$/)?.[1];
+    if (!regionCode || alert.countryCode !== "CN") return { status: "region_unverified" };
+    if (alert.areaId && alert.areaId !== regionCode) return { status: "region_mismatch" };
+    const expectedSeverity = { 3: "moderate", 4: "minor" }[alert.severity];
+    if (!expectedSeverity || !alert.description || !Number.isInteger(alert.issuedTime) || alert.issuedTime <= 0) {
+        return { status: "apple_fields_unverified" };
+    }
+    const appleType = normalizedAlertType(alert.description);
+    const candidates = extracted.alerts.filter(source => {
+        const sourceType = normalizedAlertType(source?.eventName || source?.description);
+        const sourceTime = Date.parse(source?.issuedTime);
+        return source?.areaId === regionCode
+            && source?.severity === expectedSeverity
+            && sourceType !== ""
+            && sourceType === appleType
+            && Number.isFinite(sourceTime)
+            && sourceTime === alert.issuedTime * 1000;
+    });
+    if (candidates.length === 0) return { status: "event_unmatched" };
+    if (candidates.length !== 1) return { status: "event_ambiguous" };
+    return { source: candidates[0] };
+}
+
+/** No API credential required. Rewrites links only after every existing Apple
+ * event has one exact region/type/level/publish-time match. Summary semantics
+ * remain Apple-owned; only the collection and per-alert details URLs change. */
+async function patchWK3QWeatherAlertsDiagnostic(bytes, { language = "zh-CN", timezone, fetchImpl = globalThis.fetch, rewriteDetails = true } = {}) {
+    const raw = input(bytes);
+    try {
+        const original = decodeWK3Alerts(raw);
+        if (!original) return { bytes: raw, status: "no_collection", eventCount: 0 };
+        if (!original.alerts.length) return { bytes: raw, status: "no_apple_alerts", eventCount: 0 };
+        const identifier = WK3WeatherAlerts.ParseWeatherAlertPageURL(original.detailsUrl);
+        if (!identifier || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*-\d{9}$/.test(identifier)) return { bytes: raw, status: "region_unverified", eventCount: original.alerts.length };
+        let extracted;
+        try {
+            // Build the same WeatherKit-shaped records that the details route
+            // will serve. This also binds each source event to the requested
+            // QWeather region identifier before matching.
+            extracted = await WK3WeatherAlerts.DetailsForQWeather(identifier, language, fetchImpl);
+        } catch {
+            return { bytes: raw, status: "source_unavailable", eventCount: original.alerts.length };
+        }
+        if (!Array.isArray(extracted)) return { bytes: raw, status: "source_structure_unverified", eventCount: original.alerts.length };
+        if (!extracted.length) return { bytes: raw, status: "source_no_alerts", eventCount: original.alerts.length };
+        const matches = [], used = new Set();
+        for (const alert of original.alerts) {
+            const result = exactSourceMatches(alert, { alerts: extracted }, identifier);
+            if (!result.source) return { bytes: raw, status: result.status, eventCount: original.alerts.length };
+            if (used.has(result.source)) return { bytes: raw, status: "event_ambiguous", eventCount: original.alerts.length };
+            used.add(result.source);
+            matches.push(result.source);
+        }
+        if (!rewriteDetails) return { bytes: raw, status: "matched_rewrite_disabled", eventCount: original.alerts.length };
+        const detailsUrl = buildNativeAlertDetailsURL({ identifier, language, timezone, alerts: original.alerts, matchedSources: matches });
+        const rewritten = original.alerts.map(alert => ({ ...alert, detailsUrl }));
+        const output = patchWK3Alerts(raw, rewritten, { detailsUrl });
+        return { bytes: output, status: "rewritten", eventCount: original.alerts.length };
+    } catch (error) {
+        const status = error instanceof RangeError && /payload too long|ids too long/i.test(error.message)
+            ? "details_payload_too_large"
+            : error instanceof RangeError && /Unverified WK3 summary fields/.test(error.message)
+            ? "summary_structure_unverified"
+            : error instanceof RangeError && /Invalid WK3/.test(error.message)
+                ? "structure_invalid"
+                : "patch_failed";
+        return { bytes: raw, status, eventCount: 0 };
+    }
+}
+
+async function patchWK3QWeatherAlerts(bytes, options = {}) {
+    return (await patchWK3QWeatherAlertsDiagnostic(bytes, options)).bytes;
+}
+
+return { isNativeAlertDetailsID, resolveNativeAlertDetails, patchWK3QWeatherAlertsDiagnostic };
+})();
+
+
+function __wk3RequestDiag(result) { return `WK3WD/1;result=${result}`; }
+async function __wk3BuildNativeAlertResponse(ids, language, Settings) {
+    let result = "invalid_request", body = "[]";
+    const headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+    try {
+        if (!Settings?.DataSets?.includes("weatherAlerts") || Settings?.WeatherAlerts?.Provider !== "QWeatherWeb") result = "provider_off";
+        else {
+            const originalLevel = Console.logLevel;
+            try { Console.logLevel = "OFF"; const alerts = await __WK3_ALERT_TOOLS.resolveNativeAlertDetails(ids, language, async (target, options = {}) => fetch({ url: target, ...options, timeout: 8, "auto-cookie": false })); body = JSON.stringify(alerts); result = alerts.length ? "details_served" : "details_empty"; }
+            finally { Console.logLevel = originalLevel; }
+        }
+    } catch { result = "details_unavailable"; }
+    headers["X-WK3-Alerts-Diag"] = __wk3RequestDiag(result);
+    return { status: 200, statusCode: 200, headers, body };
+}
+
+async function Request($request) {
+    // 构造回复数据
+    let $response = undefined;
+    // 解构URL
+    const url = new URL($request.url);
+    const __wk3NativeAlertRequest = url.hostname === "weatherkit.apple.com" && /^\/api\/v[12]\/weatherAlerts$/.test(url.pathname) && __WK3_ALERT_TOOLS.isNativeAlertDetailsID(url.searchParams.get("ids") || "");
+    if (__wk3NativeAlertRequest) Console.debug("[WK3] native alert details route"); else Console.info(`url: ${url.toJSON()}`);
+    const parameters = parseWeatherKitURL(url);
+    // 解析格式
+    const FORMAT = ($request.headers?.["Content-Type"] ?? $request.headers?.["content-type"])?.split(";")?.[0];
+    Console.info(`FORMAT: ${FORMAT}`);
+    /**
+     * 设置
+     * @type {{Settings: import('./types').Settings}}
+     */
+    const { Settings, Caches } = setENV("iRingo", "WeatherKit", database);
+    // 方法判断
+    switch ($request.method) {
+        case "POST":
+        case "PUT":
+        case "PATCH":
+        // biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>
+        case "DELETE":
+            // 格式判断
+            switch (FORMAT) {
+                case undefined: // 视为无body
+                    break;
+                case "application/x-www-form-urlencoded":
+                case "text/plain":
+                default:
+                    break;
+                case "application/x-mpegURL":
+                case "application/x-mpegurl":
+                case "application/vnd.apple.mpegurl":
+                case "audio/mpegurl":
+                    //body = M3U8.parse($request.body);
+                    //Console.debug(`body: ${JSON.stringify(body)}`);
+                    //$request.body = M3U8.stringify(body);
+                    break;
+                case "text/xml":
+                case "text/html":
+                case "text/plist":
+                case "application/xml":
+                case "application/plist":
+                case "application/x-plist":
+                    //body = XML.parse($request.body);
+                    //Console.debug(`body: ${JSON.stringify(body)}`);
+                    //$request.body = XML.stringify(body);
+                    break;
+                case "text/vtt":
+                case "application/vtt":
+                    //body = VTT.parse($request.body);
+                    //Console.debug(`body: ${JSON.stringify(body)}`);
+                    //$request.body = VTT.stringify(body);
+                    break;
+                case "text/json":
+                case "application/json":
+                    //body = JSON.parse($request.body ?? "{}");
+                    //Console.debug(`body: ${JSON.stringify(body)}`);
+                    //$request.body = JSON.stringify(body);
+                    break;
+                case "application/protobuf":
+                case "application/x-protobuf":
+                case "application/vnd.google.protobuf":
+                case "application/grpc":
+                case "application/grpc+proto":
+                case "application/octet-stream": {
+                    //Console.debug(`$request: ${JSON.stringify($request, null, 2)}`);
+                    let rawBody = $request.bodyBytes ? new Uint8Array($request.bodyBytes) : ($request.body ?? new Uint8Array());
+                    //Console.debug(`isBuffer? ${ArrayBuffer.isView(rawBody)}: ${JSON.stringify(rawBody, null, 2)}`);
+                    // 写入二进制数据
+                    $request.body = rawBody;
+                    break;
+                }
+            }
+        //break; // 不中断，继续处理URL
+        case "GET":
+        case "HEAD":
+        case "OPTIONS":
+        default:
+            delete $request?.headers?.["If-None-Match"];
+            delete $request?.headers?.["if-none-match"];
+            // 主机判断
+            switch (url.hostname) {
+                case "weatherkit.apple.com":
+                    // 路径判断
+                    switch (url.pathname) {
+                        case "/api/v1/weatherAlerts":
+                        case "/api/v2/weatherAlerts": {
+                            const __alertIDs = url.searchParams.get("ids")?.trim() || "";
+                            if (__wk3NativeAlertRequest) $response = await __wk3BuildNativeAlertResponse(__alertIDs, url.searchParams.get("lang") || "zh-CN", Settings);
+                            else if (url.pathname === "/api/v1/weatherAlerts") $response = await GetWeatherAlerts(__alertIDs, parameters, Settings, $request.headers);
+                            break;
+                        }
+                        default:
+                            switch (true) {
+                                case url.pathname.startsWith("/api/v1/airQualityScale/"): {
+                                    const { version, language } = parameters;
+                                    const scaleName = parameters.scale?.replace(/\.\d+$/, "");
+                                    if (version && language && scaleName) {
+                                        url.pathname = `/api/${version}/airQualityScale/${language}/${scaleName}`;
+                                        switch (url.pathname) {
+                                            case `/api/v1/airQualityScale/${language}/HK.AQHI`:
+                                            case `/api/v1/airQualityScale/${language}/CN.AQHI`:
+                                                $response = new AirQualityScale().Build(language, scaleName);
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                }
+                                case url.pathname.startsWith("/api/v2/weather/"):
+                                case url.pathname.startsWith("/api/v3/weather/"): {
+                                    // 解决 macOS 天气 app 如果使用国际版 Maps 时，country 丢失不显示未来一小时降水的问题
+                                    switch (true) {
+                                        case $request.headers["User-Agent"]?.startsWith("WeatherKit_Weather_macOS_Version"):
+                                        case $request.headers["user-agent"]?.startsWith("WeatherKit_Weather_macOS_Version"):
+                                            if (url.searchParams.has("country")) ; else {
+                                                const gcc = Storage.getItem("@iRingo.Location.Caches")?.pep?.gcc;
+                                                if (gcc) url.searchParams.set("country", gcc);
+                                            }
+                                            break;
+                                    }
+                                    break;
+                                }
+                            }
+                            break;
+                    }
+                    break;
+                case "weather-map2.apple.com": {
+                    // 路径判断
+                    switch (url.pathname) {
+                                            }
+                    break;
+                }
+            }
+            break;
+        case "CONNECT":
+        case "TRACE":
+            break;
+    }
+    $request.url = url.toString();
+    Console.debug(`$request.url: ${$request.url}`);
+    return { $request, $response };
+}
+
+/**
+ * 获取天气预警响应
+ * @param {string | undefined} identifier - 预警标识
+ * @param {ReturnType<typeof parseWeatherKitURL>} parameters - WeatherKit 请求参数
+ * @param {import('../types').Settings} Settings - 设置对象
+ * @param {Record<string, string>} headers - 请求头
+ * @returns {Promise<object>} 天气预警响应
+ */
+async function GetWeatherAlerts(identifier, parameters, Settings, headers) {
+    let body = [];
+    try {
+        switch (true) {
+            case /^[^&#]*-[0-9]{9}$/.test(identifier): {
+                Console.info("☑️ QWeather.FetchWeatherAlertPage", `ids: ${identifier}`);
+                const source = await QWeather.FetchWeatherAlertPage(identifier, parameters.language, headers);
+                body = WeatherAlerts.Build(source, {
+                    attributionUrl: QWeather.BuildWeatherAlertPageURL(identifier, parameters.language, false),
+                    identifier,
+                    language: parameters.language,
+                    countryCode: identifier.match(/-([0-9]+)$/)?.[1]?.startsWith("101") ? "CN" : "",
+                });
+                break;
+            }
+            case /^-?[0-9]+(?:\.[0-9]+)?,-?[0-9]+(?:\.[0-9]+)?$/.test(identifier): {
+                switch (Settings?.WeatherAlerts?.Provider) {
+                    case "ColorfulClouds": {
+                        Console.info("☑️ ColorfulClouds.WeatherAlert", `ids: ${identifier}`);
+                        const colorfulClouds = new ColorfulClouds(parameters, Settings?.API?.ColorfulClouds?.Token || "Y2FpeXVuX25vdGlmeQ==");
+                        const source = await colorfulClouds.WeatherAlert();
+                        body = WeatherAlerts.Build(source, {
+                            attributionUrl: source?.metadata?.attributionUrl ?? "https://www.caiyunapp.com/h5",
+                            identifier: `${parameters.latitude},${parameters.longitude}`,
+                            language: parameters.language,
+                            countryCode: parameters.country,
+                        });
+                        break;
+                    }
+                    case "QWeatherWeb":
+                    case "QWeather": {
+                        const qWeather = new QWeather(parameters, Settings?.API?.QWeather?.Token || "bdd98ec1d87747f3a2e8b1741a5af796", Settings?.API?.QWeather?.Host);
+                        body = WeatherAlerts.Build(await qWeather.WeatherAlert(), {
+                            attributionUrl: "https://www.12379.cn/",
+                            identifier: `${parameters.latitude},${parameters.longitude}`,
+                            language: parameters.language,
+                            countryCode: parameters.country,
+                        });
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    } catch (error) {
+        Console.error("WeatherAlerts", error?.stack ?? error?.message ?? String(error));
+    }
+    Console.info("✅ WeatherAlerts", `alerts: ${body.length}`, "status: 200");
+    return {
+        status: 200,
+        statusCode: 200,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "max-age=0",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+    };
+}
+
+/***************** Processing *****************/
+let $response;
+!(async () => {
+    ({ $request, $response } = await Request($request));
+})()
+    .catch(e => Console.error(e))
+    .finally(() => {
+        switch (typeof $response) {
+            case "object": // 有构造回复数据，返回构造的回复数据
+                //Console.debug("finally", `echo $response: ${JSON.stringify($response, null, 2)}`);
+                if ($response.headers?.["Content-Encoding"]) $response.headers["Content-Encoding"] = "identity";
+                if ($response.headers?.["content-encoding"]) $response.headers["content-encoding"] = "identity";
+                switch ($app) {
+                    default:
+                        done({ response: $response });
+                        break;
+                    case "Quantumult X":
+                        if (!$response.status) $response.status = 200;
+                        delete $response.headers?.["Content-Length"];
+                        delete $response.headers?.["content-length"];
+                        delete $response.headers?.["Transfer-Encoding"];
+                        done($response);
+                        break;
+                }
+                break;
+            case "undefined": // 无构造回复数据，发送修改的请求数据
+                //Console.debug("finally", `$request: ${JSON.stringify($request, null, 2)}`);
+                done($request);
+                break;
+            default:
+                Console.error(`不合法的 $response 类型: ${typeof $response}`);
+                break;
+        }
+    });
