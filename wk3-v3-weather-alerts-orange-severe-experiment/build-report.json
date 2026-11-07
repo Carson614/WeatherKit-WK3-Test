@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 2,
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-orange-severe-experiment-20261107",
+  "baseExperimentModuleCommit": "68245daaaca71e1730bbea89410c354b9d72e63a",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "license": "Apache-2.0"
+  },
+  "buildType": "fixed-anchor augmentation of the iPhone-verified Next Hour Provider Conversion bundles; not a complete Rollup source build",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "ee32a4de2d46dae2ba6bea559268c8f8ad036e8d551134377dde252aa3dc0319",
+  "responseBundleSha256": "977d9ce28e6f896205567f3a8103828c1cf8565310b69978224453bcae0e2871",
+  "requestBundleBytes": 614537,
+  "responseBundleBytes": 796812,
+  "scriptPathsAssetCommit": "b86a23f1b6c3215e16bcce18791190da79d3e1ed",
+  "assetCommit": "b86a23f1b6c3215e16bcce18791190da79d3e1ed",
+  "moduleFile": "WK3-Weather-Alerts-Orange-Severe-Experiment.sgmodule",
+  "moduleSha256": "cd13e074e19284d0e0f3d8a1745d72b9bb5e3a34d359d84d9942803aa2c2427c",
+  "registry": {
+    "version": "2026-11-07.5",
+    "nationalBase": "CMA Order 16, 14 categories",
+    "nationalLevelSource": "CMA Order 16 national signal appendix; applicable colors differ by hazard",
+    "capColorCrosswalkSource": "QX/T 408-2017 Table 6",
+    "qweatherEventSource": "https://dev.qweather.com/docs/api/warning/alert-events/",
+    "qweatherApiSchema": "https://dev.qweather.com/docs/api/warning/weather-alert/",
+    "qweatherLifecycle": "https://dev.qweather.com/docs/api/warning/alert-changes/",
+    "qweatherStructuredApiIntegrated": false,
+    "apiAuthAssumed": false,
+    "htmlFallbackPreserved": true,
+    "exactAliases": [
+      "分区暴雪 -> 暴雪"
+    ],
+    "broadNamesMapped": false,
+    "typeSpecificLevelApplicability": true,
+    "capSevereAndExtremeToAppleRawMapping": false
+  },
+  "severityEvidence": {
+    "capByGovernmentColor": {
+      "blue": "minor",
+      "yellow": "moderate",
+      "orange": "severe",
+      "red": "extreme"
+    },
+    "observedWK3RawValues": {
+      "3": "moderate",
+      "4": "minor"
+    },
+    "enabledHTMLColors": [
+      "blue",
+      "yellow",
+      "orange"
+    ],
+    "failClosedColors": [
+      "red"
+    ],
+    "raw2": "experimental_inferred=severe for national orange only; not an Apple protocol definition",
+    "realEvidence": [
+      "Upstream WK3 v3.3.6 source labels raw3=MODERATE and raw4=MINOR; no WK3 raw2 mapping was found",
+      "Fangshan snowstorm and road-icing yellow match was real-device verified",
+      "Zhangjiagang cold-wave yellow match was real-device logged",
+      "Turpan blue gale real-device match: raw4, type/region/time/unique checks passed",
+      "Tangshan Lubei real-device pairing: Apple snowstorm raw2 and QWeather snowstorm orange matched region/type/exact issue time with one identity candidate; Apple JSON severity was not captured"
+    ],
+    "officialEvidence": [
+      "QX/T 408-2017 Table 6: blue Minor; yellow Moderate; orange Severe; red Extreme",
+      "CMA Order 16 defines the 14 national categories and type-specific government colors",
+      "QWeather API docs keep severity and color as separate fields; example gives blue gale severity minor"
+    ],
+    "syntheticOnly": [
+      "Generic all-14-type applicable blue/raw4 and yellow/raw3 regression matrix",
+      "All orange/red Apple WK3 raw enum cases and inconsistent API/color evidence"
+    ],
+    "standardAppendixConflict": "QX/T 408-2017 Appendix A example appears inconsistent with Table 6 for yellow; implementation follows normative Table 6 and records this discrepancy",
+    "limitations": "raw2=Severe remains an experimental inference, with no Apple schema/source definition or same-event Apple JSON confirmation; red Extreme WK3 raw remains unknown",
+    "orangeEvidence": "This branch enables an experimental inferred raw2=Severe mapping for strict national orange matches; Tangshan pairing is not a protocol confirmation and not nationwide acceptance",
+    "experimentalMapping": true,
+    "experimentalSource": "Tangshan Lubei real-device strict pairing: Apple snowstorm raw2 and QWeather orange had same region/type/issue time with one identity candidate; Apple JSON severity was not captured",
+    "capSevereAndExtremeToAppleRawMapping": "orange raw2 experimental only; red unverified"
+  },
+  "updateHandling": {
+    "previousCause": "Any update/changed lifecycle was rejected before exact issue-time and candidate checks, producing source_updated",
+    "acceptedLifecycle": "Current QWeather page update may match only with exact Apple issuedTime, strict region/type/severity, and one unique candidate",
+    "staleAppleRule": "A newer same-type update rejects older Apple data as source_update_newer_candidate",
+    "mismatchRule": "Nonmatching update issue time returns source_update_version_mismatch",
+    "cancelRule": "cancel/解除 and unknown lifecycle are never candidates",
+    "htmlIdentityLimit": "Public page parsing has no structured QWeather alert id/supersedes chain; exact issue time plus current page and strict predicates is the available binding evidence, not an API-level identity proof",
+    "collectionRewriteRule": "All Apple events must uniquely match; any one failure returns the complete original collection and links; no per-event partial rewriting."
+  },
+  "sampleCollection": {
+    "ledger": "metadata-only public sample normalizer/deduplicator; records source, capture time, region, type, color, lifecycle, issue time and evidence grade",
+    "livePublicCrawlCompleted": false,
+    "publicPageAccess": "QWeather public page returned HTTP 403 in this environment",
+    "officialApiAccess": "QWeather official alert API requires configured authentication; no token was requested or stored",
+    "fixture": "official API documentation update example, explicitly marked documentation-only and not Apple-WK3 paired",
+    "evidencePolicy": "Public-page/API samples never count as Apple WK3 real-device severity pairs"
+  },
+  "diagnostics": {
+    "header": "X-WK3-Alerts-Diag",
+    "eventFields": "raw and normalized Apple/QWeather types, bounded QWeather page area name, type IDs, issue time, candidate predicates; raw2 JSON counterpart explicitly not captured; no event IDs, URL, coordinates, region identifier, token or response body",
+    "sensitiveFields": false
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 85,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response bundles",
+    "aqScaleIndexCategoryYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "wk3UnknownRootFields": true,
+    "fangshanDualAlertRegression": true,
+    "turpanBlueGaleRegression": true,
+    "updateCurrentExactVersion": true,
+    "updateSupersededStaleRejected": true,
+    "updateLifecycleEvidenceLimit": "HTML omits structured message id and supersedes chain",
+    "nationalColorApplicabilityCoverage": true,
+    "sourceFailureFallback": true,
+    "iPhoneAlertAcceptance": false,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "fullBuildNote": "Not attempted as a full Rollup build in this experiment; inherited known blocker is private @nsringo/weatherkit GitHub Packages 401. Fixed-anchor augmentation was used.",
+    "testCommand": "npm test",
+    "raw2RemainsFailClosed": true,
+    "raw2OriginalBytesAndEventIdentityPreserved": true,
+    "raw2TypeTimeAndCandidateDiagnostics": true,
+    "allOrNothingSharedRoute": true,
+    "tangshanThreeAlertSyntheticReplay": true,
+    "testCount": 86,
+    "testsPassed": 86,
+    "testFailures": 0,
+    "generatedBundleSyntaxCheck": true
+  },
+  "license": "Apache-2.0; upstream attribution retained",
+  "installFile": "WK3-Weather-Alerts-Orange-Raw2-Diagnostic-Test.sgmodule"
+}
