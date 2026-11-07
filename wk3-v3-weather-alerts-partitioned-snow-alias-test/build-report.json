@@ -1,0 +1,104 @@
+{
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-partitioned-snow-alias-test-20261107",
+  "baseCommit": "0266af679fa933596d0884282a412ac7d0d31335",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "baseBundleDirectory": "wk3-v3-next-hour-provider-conversion-test",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "files": [
+      "src/wk3/class/WK3Alerts.mjs",
+      "src/wk3/class/NativeAlertDetails.mjs",
+      "src/wk3/entry/request.mjs",
+      "src/wk3/routes.mjs"
+    ]
+  },
+  "iRingoReference": "https://gist.githubusercontent.com/VirgilClyne/862db28df04be7523476d10b61b128f2/raw/iRingo.WeatherKit.dev.sgmodule",
+  "buildType": "deterministic fixed-anchor augmentation of the exact device-verified Next Hour Provider Conversion bundles; not Rollup",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "a1cd29c5326daf4107b3685ce9835537e97b8c1ad63d358ea4c124af90ac329a",
+  "responseBundleSha256": "33fcb0d25f7373d9fdbf12eff8bdc3399e5921582d0e3ac991fdadf64ae46e12",
+  "requestBundleBytes": 586572,
+  "responseBundleBytes": 768024,
+  "scriptPathsAssetCommit": "7408646ebfdb889a448c0bbf8c9ddf0ee4b6dae1",
+  "assetCommit": "7408646ebfdb889a448c0bbf8c9ddf0ee4b6dae1",
+  "moduleSha256": "c9e370d9122fb759daa9d7b429033df2d65533909e13997fc81eea072190360e",
+  "feature": {
+    "provider": "QWeatherWeb",
+    "independentSwitch": "WeatherAlerts.Provider=WeatherKit",
+    "wk3RootSlot": 9,
+    "collectionSlots": {
+      "metadata": 0,
+      "detailsUrl": 1,
+      "alerts": 2
+    },
+    "summaryChanges": [
+      "existing collection detailsUrl",
+      "existing per-alert detailsUrl"
+    ],
+    "appleEventIdentityAndSemanticsPreserved": true,
+    "matchKeys": [
+      "country=CN",
+      "region",
+      "normalized type",
+      "verified severity",
+      "exact issue timestamp"
+    ],
+    "nativeDetailsRoute": [
+      "/api/v1/weatherAlerts",
+      "/api/v2/weatherAlerts"
+    ],
+    "noSecondProviderRequestForDetails": true,
+    "locatorLimits": {
+      "jsonBytes": 12000,
+      "encodedIDCharacters": 16384
+    },
+    "matchDiagnostics": "Per-event counts expose region/type/severity/exact issue-time/candidate checks; raw alert text is bounded to script logs only.",
+    "genericWarningSuffixNormalization": "Existing terminal warning suffix normalization retained; the only new alias is exact 分区暴雪 to 暴雪.",
+    "matchingLogicChanged": true,
+    "otherFunctionLogicChanged": false,
+    "confirmedAlias": {
+      "source": "分区暴雪",
+      "apple": "暴雪",
+      "key": "partitioned_snow_to_snow",
+      "genericPrefixRemoval": false
+    }
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 56,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response scripts",
+    "binaryReDecode": true,
+    "acceptedAqiAndYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "unknownRootFields": true,
+    "surgeModuleContract": true,
+    "rawRealAlertFixtureReplay": false,
+    "iPhoneAlertAcceptance": false,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "typeTextDiagnosticsReplay": true,
+    "generalLogsForcedOff": true,
+    "testCommand": "npm test",
+    "confirmedAliasReplay": true,
+    "detailsRouteReplay": [
+      "v1 details_served",
+      "v2 details_served"
+    ]
+  },
+  "limitations": [
+    "Real iPhone output and QWeather HTML are not part of automated fixtures; iPhone acceptance remains pending.",
+    "The response script rewrites alert details only after all Apple events pass strict region, type, severity, exact issue-time and unique-candidate checks.",
+    "Bundle generation is fixed-anchor augmentation of hash-pinned device-verified bundles, not full Rollup source build; private @nsringo/weatherkit previously returned HTTP 401."
+  ],
+  "license": "Apache-2.0; upstream attribution retained",
+  "experimentType": "independent manual-install title-text diagnostic module; match rules unchanged; not a stable release",
+  "aliasBranchParentCommit": "0266af679fa933596d0884282a412ac7d0d31335"
+}
