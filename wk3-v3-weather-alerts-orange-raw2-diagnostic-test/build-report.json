@@ -14,14 +14,14 @@
   "buildType": "fixed-anchor augmentation of the iPhone-verified Next Hour Provider Conversion bundles; not a complete Rollup source build",
   "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
   "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
-  "requestBundleSha256": "e0f5bff80ea8df2710badcc5c5fd2422c518bbf4536fcc7909d4f99fc4fae3ae",
-  "responseBundleSha256": "2aa55ef30716a8046a3809a66e8b37348a23500e4a4239b444f0e66e5944dc51",
-  "requestBundleBytes": 614419,
-  "responseBundleBytes": 796694,
-  "scriptPathsAssetCommit": "1a7314c91e700c868ab26c7be3273db64cdde0ef",
-  "assetCommit": "1a7314c91e700c868ab26c7be3273db64cdde0ef",
+  "requestBundleSha256": "60d332a2ee434f49f4fa7e9c7195a9f9e44b15f5b403398716a2e5e27ef03ed2",
+  "responseBundleSha256": "50933b5821bf98aafb6dffdbcec7830c413675fa63aabf56bc01df9245611990",
+  "requestBundleBytes": 614537,
+  "responseBundleBytes": 796812,
+  "scriptPathsAssetCommit": "8b6cdbd37d7837763f8999feb940b3c658bb485b",
+  "assetCommit": "8b6cdbd37d7837763f8999feb940b3c658bb485b",
   "moduleFile": "WK3-Weather-Alerts-Orange-Raw2-Diagnostic-Test.sgmodule",
-  "moduleSha256": "3e1e7b99fb7b06bf1aaddd5b31d984678d92f04385ff896d2f000579eec5c4cc",
+  "moduleSha256": "2d3adc12ada868ddc5a6be61b66192a3624e32ab5813147a944b63ab05549e3b",
   "registry": {
     "version": "2026-11-07.5",
     "nationalBase": "CMA Order 16, 14 categories",
@@ -98,7 +98,7 @@
   },
   "diagnostics": {
     "header": "X-WK3-Alerts-Diag",
-    "eventFields": "raw and normalized Apple/QWeather type text, type IDs, issue time, bounded candidate predicates; raw2 JSON counterpart explicitly not captured; no event IDs, URL, coordinates, region identifier, token or response body",
+    "eventFields": "raw and normalized Apple/QWeather types, bounded QWeather page area name, type IDs, issue time, candidate predicates; raw2 JSON counterpart explicitly not captured; no event IDs, URL, coordinates, region identifier, token or response body",
     "sensitiveFields": false
   },
   "validation": {
