@@ -247,4 +247,8 @@ test("conversion failures expose fixed safe codes without returning provider det
     assert.equal(condition.status, "provider_data_rejected_condition_enum");
     assert.deepEqual(condition.bytes, original);
     assert.doesNotMatch(condition.status, /FUTURE|31\.4|120\.9/);
+
+    const unknownToken = await patchWK3NextHourDiagnostic(original, async () => providerForecast({ unknownEnum: true }));
+    assert.equal(unknownToken.status, "provider_data_rejected_token_enum");
+    assert.deepEqual(unknownToken.bytes, original);
 });
