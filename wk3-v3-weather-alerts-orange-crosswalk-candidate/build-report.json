@@ -19,10 +19,10 @@
   "responseBundleSha256": "977d9ce28e6f896205567f3a8103828c1cf8565310b69978224453bcae0e2871",
   "requestBundleBytes": 615415,
   "responseBundleBytes": 797914,
-  "scriptPathsAssetCommit": "ASSET_COMMIT",
-  "assetCommit": "ASSET_COMMIT",
+  "scriptPathsAssetCommit": "25a27bb87392af103771a7d6d1065b316c72da28",
+  "assetCommit": "25a27bb87392af103771a7d6d1065b316c72da28",
   "moduleFile": "WK3-Weather-Alerts-Orange-Crosswalk-Candidate.sgmodule",
-  "moduleSha256": "b6306cfc96ee86a1c8d9b61d9f072b18a316cbf93ce0cafdfbbab0694e725daa",
+  "moduleSha256": "98cfaab168fb17063fbf9443d52af345b318171bc52955101aaa207ca4081e9d",
   "registry": {
     "version": "2026-11-07.5",
     "nationalBase": "CMA Order 16, 14 categories",
@@ -146,9 +146,27 @@
     "device": "iOS 27.3 + Surge 6.100.0",
     "responseSummary": "events=3;src=3;parse=3,0,0,0;link=native_api;e0=matched_update_experimental_inferred:raw2:gorange;e1=matched:raw4:gblue;e2=matched_update_current:raw4:gblue;result=rewritten",
     "visualDetails": [
-      { "event": "暴雪橙色预警", "displayedSeverity": "严重", "issuedLocal": "2026-11-07 16:12 GMT+8", "source": "河北省气象台", "userConfirmedCorrect": true },
-      { "event": "寒潮蓝色预警", "displayedSeverity": "轻微", "issuedLocal": "2026-11-06 16:40 GMT+8", "source": "河北省气象台", "userConfirmedCorrect": true },
-      { "event": "大风蓝色预警", "displayedSeverity": "轻微", "issuedLocal": "2026-11-07 16:15 GMT+8", "source": "河北省气象台", "userConfirmedCorrect": true }
+      {
+        "event": "暴雪橙色预警",
+        "displayedSeverity": "严重",
+        "issuedLocal": "2026-11-07 16:12 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      },
+      {
+        "event": "寒潮蓝色预警",
+        "displayedSeverity": "轻微",
+        "issuedLocal": "2026-11-06 16:40 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      },
+      {
+        "event": "大风蓝色预警",
+        "displayedSeverity": "轻微",
+        "issuedLocal": "2026-11-07 16:15 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      }
     ],
     "evidenceSource": "User-provided Surge response headers and iPhone screenshots; event identifiers, coordinates and request locators omitted",
     "scopeLimit": "Confirms these three Tangshan alerts and their shared native detail route only; does not confirm raw2 semantics for all WK3 events or all national orange hazard types"
