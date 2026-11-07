@@ -1,0 +1,94 @@
+{
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-type-text-diag-test-20261107",
+  "baseCommit": "8ce3a704668420605a1ab116ce974c3009b5cd78",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "baseBundleDirectory": "wk3-v3-next-hour-provider-conversion-test",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "files": [
+      "src/wk3/class/WK3Alerts.mjs",
+      "src/wk3/class/NativeAlertDetails.mjs",
+      "src/wk3/entry/request.mjs",
+      "src/wk3/routes.mjs"
+    ]
+  },
+  "iRingoReference": "https://gist.githubusercontent.com/VirgilClyne/862db28df04be7523476d10b61b128f2/raw/iRingo.WeatherKit.dev.sgmodule",
+  "buildType": "deterministic fixed-anchor augmentation of the exact device-verified Next Hour Provider Conversion bundles; not Rollup",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "da2806de271d2b027f140427050a6ae3e51f76189c057922f49acead8fdf4951",
+  "responseBundleSha256": "7fe1c2ea5141d83eccee658e8c3674ef4b85c4d7df9175f39c78eb72a2edd31c",
+  "requestBundleBytes": 585873,
+  "responseBundleBytes": 767100,
+  "scriptPathsAssetCommit": "b4970690191c3e50965d3f40b76231c2612e68d9",
+  "assetCommit": "b4970690191c3e50965d3f40b76231c2612e68d9",
+  "moduleSha256": "ada9de43a189797847ac55816019f19a51ebeaa73f077d686833edad257c7c44",
+  "feature": {
+    "provider": "QWeatherWeb",
+    "independentSwitch": "WeatherAlerts.Provider=WeatherKit",
+    "wk3RootSlot": 9,
+    "collectionSlots": {
+      "metadata": 0,
+      "detailsUrl": 1,
+      "alerts": 2
+    },
+    "summaryChanges": [
+      "existing collection detailsUrl",
+      "existing per-alert detailsUrl"
+    ],
+    "appleEventIdentityAndSemanticsPreserved": true,
+    "matchKeys": [
+      "country=CN",
+      "region",
+      "normalized type",
+      "verified severity",
+      "exact issue timestamp"
+    ],
+    "nativeDetailsRoute": [
+      "/api/v1/weatherAlerts",
+      "/api/v2/weatherAlerts"
+    ],
+    "noSecondProviderRequestForDetails": true,
+    "locatorLimits": {
+      "jsonBytes": 12000,
+      "encodedIDCharacters": 16384
+    },
+    "matchDiagnostics": "Apple raw descriptions, QWeather raw event names/descriptions, normalized matcher keys, exact pair equality and unmatched Unicode fragments; script log only, bounded to 2 Apple events and 4 QWeather candidates",
+    "genericWarningSuffixNormalization": "Strip only a terminal generic warning marker in the type key; severity and exact issue time remain mandatory",
+    "matchingLogicChanged": false,
+    "otherFunctionLogicChanged": false
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 51,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for both request and response scripts",
+    "binaryReDecode": true,
+    "acceptedAqiAndYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "unknownRootFields": true,
+    "surgeModuleContract": true,
+    "rawRealAlertFixtureReplay": false,
+    "iPhoneAlertAcceptance": false,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "typeTextDiagnosticsReplay": true,
+    "generalLogsForcedOff": true,
+    "testCommand": "npm test"
+  },
+  "limitations": [
+    "No real Fangshan Apple response binary or paired QWeather HTML was used; test strings are synthetic and cannot determine e0 actual type.",
+    "QWeather page DOM and current alerts may change; this version only logs titles and does not change matching or links.",
+    "The current request logs must be collected on iPhone to identify real title normalization differences; automated replay is not iPhone acceptance.",
+    "Bundle generation is fixed-anchor augmentation of hash-pinned device-verified bundles, not full Rollup source build; private @nsringo/weatherkit previously returned HTTP 401."
+  ],
+  "license": "Apache-2.0; upstream attribution retained",
+  "experimentType": "independent manual-install title-text diagnostic module; match rules unchanged; not a stable release",
+  "diagnosticBranchParentCommit": "8ce3a704668420605a1ab116ce974c3009b5cd78"
+}
