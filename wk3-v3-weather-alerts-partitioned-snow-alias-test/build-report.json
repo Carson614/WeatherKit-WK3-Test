@@ -26,7 +26,7 @@
   "responseBundleBytes": 768024,
   "scriptPathsAssetCommit": "7408646ebfdb889a448c0bbf8c9ddf0ee4b6dae1",
   "assetCommit": "7408646ebfdb889a448c0bbf8c9ddf0ee4b6dae1",
-  "moduleSha256": "c9e370d9122fb759daa9d7b429033df2d65533909e13997fc81eea072190360e",
+  "moduleSha256": "6255002199dfc64c14c9330702f7c09ac1d7c3b854c5871b1423a706c800e750",
   "feature": {
     "provider": "QWeatherWeb",
     "independentSwitch": "WeatherAlerts.Provider=WeatherKit",
@@ -99,6 +99,6 @@
     "Bundle generation is fixed-anchor augmentation of hash-pinned device-verified bundles, not full Rollup source build; private @nsringo/weatherkit previously returned HTTP 401."
   ],
   "license": "Apache-2.0; upstream attribution retained",
-  "experimentType": "independent manual-install title-text diagnostic module; match rules unchanged; not a stable release",
+  "experimentType": "independent manual-install exact snow alias test module; matching alias changed narrowly; not a stable release",
   "aliasBranchParentCommit": "0266af679fa933596d0884282a412ac7d0d31335"
 }
