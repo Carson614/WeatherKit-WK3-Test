@@ -179,15 +179,16 @@ test("diagnostics distinguish a slot beyond the serialized root vtable", async (
 test("a serialized zero field offset can be extended while preserving AQI and opaque root slot 17", async () => {
     const original = withZeroNextHourRootSlot();
     assert.equal(inspectWK3NextHourRootSlot(original).status, "root_slot_offset_zero");
-    const opaqueBefore = tableFingerprint(original, 17);
-    assert.ok(opaqueBefore, "fixture contains an opaque future root table at slot 17");
+    const opaqueSlots = [1, 2, 3, 4, 9, 14, 17];
+    const opaqueBefore = new Map(opaqueSlots.map(slot => [slot, tableFingerprint(original, slot)]));
+    assert.ok(opaqueBefore.get(17), "fixture contains an opaque future root table at slot 17");
     let calls = 0;
     const result = await patchWK3NextHourDiagnostic(original, async () => { calls++; return providerForecast({ rainRanges: [[4, 9, 1.4]] }); });
     assert.equal(result.status, "injected");
     assert.equal(result.slotStatus, "root_slot_offset_zero");
     assert.equal(calls, 1);
     assert.deepEqual(readAqSnapshot(result.bytes), readAqSnapshot(original));
-    assert.deepEqual(tableFingerprint(result.bytes, 17), opaqueBefore);
+    for (const slot of opaqueSlots) assert.deepEqual(tableFingerprint(result.bytes, slot), opaqueBefore.get(slot));
     assert.ok(Math.abs(decodeWK3NextHour(result.bytes).minutes[4].precipitationIntensity - 1.4) < 0.00001);
 });
 
