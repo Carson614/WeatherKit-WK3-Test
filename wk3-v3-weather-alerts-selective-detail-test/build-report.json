@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-selective-detail-test-20261107",
+  "baseCommit": "be9c44cfba0ad54104f449b1a62f2280de592025",
+  "snowAliasBaseCommit": "b9ccf4dec00d215d6e8e208c93c725ba571defb5",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "baseBundleDirectory": "wk3-v3-next-hour-provider-conversion-test",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "files": [
+      "src/wk3/class/WK3Alerts.mjs",
+      "src/wk3/class/NativeAlertDetails.mjs",
+      "src/wk3/entry/request.mjs",
+      "src/wk3/routes.mjs"
+    ]
+  },
+  "iRingoReference": "https://gist.githubusercontent.com/VirgilClyne/862db28df04be7523476d10b61b128f2/raw/iRingo.WeatherKit.dev.sgmodule",
+  "buildType": "fixed-anchor augmentation from hash-pinned iPhone-verified bundles; not a complete Rollup source build",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "85787cb32aa2d66eaee9a9fb4f4d860948369737c51e861659cba1b495680703",
+  "responseBundleSha256": "2b90cd89fa19e066132653f5b8853c0ca82d435511e818c55f06224bef532fd4",
+  "requestBundleBytes": 601655,
+  "responseBundleBytes": 783295,
+  "scriptPathsAssetCommit": "561d4e8d372d5e2801df8639d49e53833b3b150b",
+  "assetCommit": "561d4e8d372d5e2801df8639d49e53833b3b150b",
+  "moduleSha256": "85bf174093ad19c5125f8e0e5f2f0d7bae23e14f1495b88df6be645220675498",
+  "registry": {
+    "version": "2026-11-07.1",
+    "nationalBase": "CMA Order 16; 14 base types",
+    "qweatherEventSource": "https://dev.qweather.com/docs/api/warning/alert-events/",
+    "localSources": [
+      "Sichuan regulation revised 2023-12-19: https://www.moj.gov.cn/pub/sfbgw/flfggz/flfggzdfzwgz/202410/t20241023_508240.html",
+      "Shenzhen DB4403/T 298-2022, effective status current as of 2024-10-10: https://weather.sz.gov.cn/xingxigongkai/qita/jishubiaozhun/content/post_11595663.html"
+    ],
+    "localCoverage": "Selected sourced Sichuan and Shenzhen extensions only; not an exhaustive register of every jurisdiction",
+    "qweatherEventCode": "Resolve only when actual eventType.code is present; current QWeather HTML extractor does not provide it",
+    "exactTitleParsing": true,
+    "exactAliases": [
+      "分区暴雪 -> 暴雪"
+    ],
+    "broadHazardNamesMapped": false,
+    "genericPartitionPrefixRemoval": false,
+    "severityModels": {
+      "governmentColor": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "qweatherApiSeverity": [
+        "unknown",
+        "minor",
+        "moderate",
+        "severe",
+        "extreme"
+      ],
+      "appleWK3RawVerified": {
+        "3": "moderate",
+        "4": "minor"
+      },
+      "htmlColorCrosswalk": [
+        {
+          "appleRawSeverity": 3,
+          "governmentColor": "yellow",
+          "evidence": "Fangshan e1 real-device match under Snow Alias Test baseline"
+        }
+      ]
+    }
+  },
+  "feature": {
+    "provider": "QWeatherWeb",
+    "independentSwitch": "WeatherAlerts.Provider=WeatherKit",
+    "wk3RootSlot": 9,
+    "collectionSlots": {
+      "metadata": 0,
+      "detailsUrl": 1,
+      "alerts": 2
+    },
+    "summaryChanges": [
+      "existing collection detailsUrl",
+      "existing per-alert detailsUrl"
+    ],
+    "appleEventIdentityPreserved": true,
+    "requiredMatchKeys": [
+      "type registry identity",
+      "same QWeather point page and Apple areaId",
+      "verified severity",
+      "exact publish time",
+      "active lifecycle",
+      "unique candidate"
+    ],
+    "nativeDetailsRoutes": [
+      "/api/v1/weatherAlerts",
+      "/api/v2/weatherAlerts"
+    ],
+    "noSecondProviderRequestForDetails": true,
+    "diagnostics": [
+      "raw WK3 enum",
+      "Apple/QWeather exact hazard title",
+      "normalized type ID",
+      "QWeather API severity or government color",
+      "publish time",
+      "region/type/severity/time/uniqueness/lifecycle predicate flags"
+    ],
+    "noSensitiveLocatorLogging": true,
+    "allOrNothingBatchFallback": true,
+    "acceptedAqiAndMinuteRainLogicChanged": false,
+    "detailsLinkModel": "WK3 has a collection detailsUrl at collection slot 1 and a per-summary detailsUrl at summary slot 12.",
+    "partialMatchBehavior": "Only a strictly matched summary with an existing non-empty per-alert detailsUrl receives a one-event native route. The collection URL and unmatched summaries remain unchanged.",
+    "sharedOnlyBehavior": "If no matched summary has its own detailsUrl, fail open byte-for-byte; do not create per-alert links.",
+    "appleEventIdentity": "Native detail payload contains only the matched original Apple UUID; request route validates identity, region, event type, severity and publish time.",
+    "allMatchedBehavior": "Existing shared collection route remains unchanged when every Apple event matches.",
+    "strictMatchingRulesChanged": false,
+    "unmatchedEventChanged": false
+  },
+  "evidence": {
+    "fangshan": {
+      "realDevice": "e1 road-icing matched; source/title evidence supports exact snow alias research",
+      "fullDualAlertSuccessInThisVersion": false,
+      "automatedReplay": "synthetic anonymous two-alert fixture passes; not an iPhone result",
+      "areaIdMissingRegression": "synthetic two-alert replay against fangshan-101011200 passes with both original Apple areaId fields absent"
+    },
+    "wanshan": {
+      "realDeviceReportedStatus": "e0=severity_unverified; e1=type_no_match",
+      "rawSeverityAndSourceTypeValuesProvided": false,
+      "localReplay": "synthetic unknown-enum/type fail-open case only; not a real-response replay"
+    }
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 72,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response bundles",
+    "bundleHashesMatchReport": true,
+    "aqScaleIndexCategoryYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "wk3UnknownRootFields": true,
+    "lifecycleUpdateCancelFallback": true,
+    "countrywideRegistryCoverageComplete": false,
+    "rawWanshanFixtureReplay": false,
+    "iPhoneAlertAcceptance": false,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "fullBuildNote": "This independent branch uses deterministic fixed-anchor builds. A prior baseline build reported private @nsringo/weatherkit package HTTP 401; this branch did not claim a full Rollup build.",
+    "testCommand": "npm test",
+    "wanshanRawEnumProvided": false,
+    "areaIdMissingFangshanDualAlert": true,
+    "explicitAreaMismatchStillRejected": true,
+    "missingCountryFailsClosed": true,
+    "iPhoneAreaIdFallbackAcceptance": false,
+    "selectiveDetailsReplay": true,
+    "sharedCollectionLinkPreserved": true,
+    "unmatchedAppleEventPreserved": true,
+    "singleAppleIDDetailsRoute": true,
+    "iPhoneSelectiveDetailsAcceptance": false
+  },
+  "limitations": [
+    "The WK3 wire representation contains both a collection-level link and a per-summary link. Whether Apple Weather on iOS 27.3 follows a rewritten per-summary link is not proven by source replay and must be checked on iPhone.",
+    "No raw Zhangjiagang WK3 binary was supplied; the automated partial-match replay is anonymous and synthetic, using the reported event titles and matching pattern.",
+    "No iPhone acceptance of this new module has been performed.",
+    "The build is a deterministic fixed-anchor augmentation of the accepted bundle, not a full Rollup source build; prior private @nsringo/weatherkit package access returned HTTP 401."
+  ],
+  "license": "Apache-2.0; upstream attribution retained",
+  "experimentType": "independent per-alert selective details routing experiment",
+  "nationalRegistryBaseCommit": "59898ae30cd5edff8d8c2b27754015c108db9610",
+  "moduleFile": "WK3-Weather-Alerts-Selective-Detail-Test.sgmodule",
+  "areaIdFallback": {
+    "missingAppleAreaIdAllowed": true,
+    "requiredChecks": [
+      "Apple countryCode exactly CN",
+      "original Apple QWeather details URL parses to one region identifier and 9-digit region code",
+      "QWeather candidate areaId matches original URL region code",
+      "QWeather candidate source metadata regionIdentifier exactly matches original URL identifier",
+      "strict existing type, verified severity, exact issue time, active lifecycle, unique candidate and Apple ID binding"
+    ],
+    "explicitAreaMismatch": "reject",
+    "diagnosticOnMissingEvidence": "region_unverified",
+    "fangshanRegression": "synthetic dual-alert replay with omitted Apple areaId; not an iPhone result"
+  },
+  "parentBranch": "wk3-weather-alerts-areaid-fallback-test-20261107"
+}
