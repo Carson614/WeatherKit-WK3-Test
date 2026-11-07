@@ -6680,7 +6680,290 @@ class MatchEnum {
         this.json?.news?.placements?.forEach((jsonPlacement, i) => {
             const jsonArticleIds = jsonPlacement?.articles?.map(a => a?.id) ?? [];
             const jsonHeadlines = jsonPlacement?.articles?.map(a => a?.headlineOverride) ?? [];
-            // 通过 articles 的 id 或 headline�޽���z�&��^t       const standard = QWeather.#FirstWeatherAlertPageMatch(standardBlock, /<h4[^>]*>[\s\S]*?<\/h4>\s*<p[^>]*>([\s\S]*?)<\/p>/i);
+            // 通过 articles 的 id 或 headlineOverride 匹配对应的 proto placement
+            let protoIndex = -1;
+            const protoPlacement = this.proto?.news?.placements?.find((p, idx) => {
+                const protoArticleIds = p?.articles?.map(a => a?.id) ?? [];
+                const protoHeadlines = p?.articles?.map(a => a?.headlineOverride) ?? [];
+                // 检查是否有相同的 article id 或 headline
+                const matched = jsonArticleIds.some(id => protoArticleIds.includes(id)) || jsonHeadlines.some(h => h && protoHeadlines.includes(h));
+                if (matched) protoIndex = idx;
+                return matched;
+            });
+            if (protoPlacement) {
+                const jsonValue = jsonPlacement?.placement;
+                const protoValue = protoPlacement?.placement;
+                const protoEnumIndex = this.enumTypes.PlacementType[protoValue];
+                if (jsonValue !== protoValue) {
+                    const headline = jsonHeadlines[0] ?? jsonArticleIds[0] ?? "";
+                    $notification.post("PlacementType", "", `article: ${headline}\njson[${i}]: ${jsonValue}\nproto[${protoIndex}]: ${protoEnumIndex}-${protoValue}`);
+                }
+            }
+        });
+    }
+}
+
+class QWeather {
+    static #MaximumWeatherAlertPageSize = 2 * 1024 * 1024;
+
+    constructor(parameters, token, host = "devapi.qweather.com") {
+        this.Name = "QWeather";
+        this.Version = "5.3.1";
+        Console.log(`🟧 ${this.Name} v${this.Version}`);
+        this.endpoint = `https://${host}`;
+        this.headers = { "X-QW-Api-Key": token };
+        this.version = parameters.version;
+        this.language =
+            this.#Config.Language[
+                String(parameters.language ?? "")
+                    .trim()
+                    .toLowerCase()
+            ] ?? (String(parameters.language ?? "").trim() ? parameters.language : this.#Config.Language[""]);
+        this.latitude = parameters.latitude;
+        this.longitude = parameters.longitude;
+        this.country = parameters.country;
+        this.weatherKitLanguage = String(parameters.weatherKitLanguage ?? parameters.language ?? "").trim() || "zh-CN";
+    }
+
+    #cache = {
+        airQualityCurrent: {},
+    };
+
+    #Config = {
+        Language: {
+            "": "zh",
+            en: "en",
+            "en-au": "en",
+            "en-ca": "en",
+            "en-gb": "en",
+            "en-us": "en",
+            ja: "ja",
+            "ja-jp": "ja",
+            zh: "zh",
+            "zh-cn": "zh-hans",
+            "zh-sg": "zh-hans",
+            "zh-hans": "zh-hans",
+            "zh-hans-cn": "zh-hans",
+            "zh-hant-hk": "zh-hant",
+            "zh-hant-mo": "zh-hant",
+            "zh-hant-tw": "zh-hant",
+            "zh-hk": "zh-hant",
+            "zh-mo": "zh-hant",
+            "zh-tw": "zh-hant",
+        },
+        Pollutants: {
+            co: "CO",
+            no: "NO",
+            no2: "NO2",
+            so2: "SO2",
+            o3: "OZONE",
+            nox: "NOX",
+            pm25: "PM2_5",
+            pm2p5: "PM2_5",
+            pm10: "PM10",
+            other: "NOT_AVAILABLE",
+            na: "NOT_AVAILABLE",
+            undefined: "NOT_AVAILABLE",
+            null: "NOT_AVAILABLE",
+        },
+        Units: {
+            "μg/m3": "MICROGRAMS_PER_CUBIC_METER",
+            "mg/m3": "MILLIGRAMS_PER_CUBIC_METER",
+            ppb: "PARTS_PER_BILLION",
+            ppm: "PARTS_PER_MILLION",
+        },
+        WeatherAlert: {
+            // QWeather 没有提供 CAP category，本表按官方事件名称映射；具体类别必须先于 Met 匹配。
+            // QWeather does not provide CAP category; this table maps official event names, with specific categories matched before Met.
+            EventCategories: [
+                { category: "Geo", codes: [[1013, 1013], [1037, 1037], [1241, 1251], [1603, 1603], [2032, 2032], [2159, 2159], [2163, 2163], [2320, 2323], [2348, 2348], [2363, 2363], [2373, 2373], [2378, 2378], [2399, 2400], [3140, 3140], [3144, 3144]] },
+                { category: "Safety", codes: [[1044, 1045], [1218, 1218], [2419, 2420], [2713, 2713]] },
+                { category: "Security", codes: [] },
+                { category: "Rescue", codes: [] },
+                { category: "Fire", codes: [[1025, 1026], [1041, 1041], [1077, 1077], [1084, 1084], [1605, 1605], [2005, 2005], [2132, 2132], [2158, 2158], [2192, 2192], [2207, 2207], [2302, 2302], [2349, 2349], [2414, 2414], [2743, 2743], [3139, 3139]] },
+                { category: "Health", codes: [[1024, 1024], [1042, 1042], [1066, 1066], [1068, 1069], [1071, 1072], [1082, 1082], [1210, 1210], [2851, 2851]] },
+                { category: "Env", codes: [[1029, 1029], [1032, 1032], [1067, 1067], [1074, 1074], [1217, 1217], [1271, 1274], [2202, 2202], [2374, 2374], [2389, 2389], [2413, 2413], [2527, 2527]] },
+                { category: "Transport", codes: [[1021, 1021], [1046, 1046], [1057, 1057], [2077, 2078], [2300, 2301], [2328, 2328], [2360, 2360], [2375, 2376], [2385, 2388], [2415, 2415], [2554, 2554], [2722, 2723], [2791, 2797]] },
+                { category: "Infra", codes: [[1081, 1081], [1203, 1204], [1216, 1216], [1221, 1221]] },
+                { category: "CBRNE", codes: [] },
+                { category: "Other", codes: [[2166, 2166], [3106, 3106], [3147, 3147], [9999, 9999]] },
+                {
+                    category: "Met",
+                    codes: [[1001, 1089], [1201, 1221], [1241, 1251], [1271, 1274], [1601, 1610], [1701, 1710], [1801, 1805], [2001, 2007], [2029, 2033], [2050, 2054], [2070, 2085], [2100, 2109], [2111, 2111], [2120, 2135], [2150, 2150], [2152, 2168], [2190, 2193], [2200, 2205], [2207, 2221], [2300, 2309], [2311, 2328], [2330, 2333], [2341, 2341], [2343, 2343], [2345, 2346], [2348, 2400], [2409, 2409], [2411, 2426], [2501, 2502], [2521, 2532], [2550, 2554], [2581, 2581], [2601, 2620], [2641, 2641], [2713, 2713], [2722, 2723], [2743, 2743], [2749, 2749], [2751, 2753], [2755, 2756], [2791, 2797], [2801, 2804], [2839, 2853], [2873, 2874], [3101, 3107], [3131, 3148]],
+                },
+            ],
+        },
+        Availability: {
+            Minutely: ["CN", "HK", "MO"],
+            AirQuality: ["AD", "BE", "BG", "CA", "CN", "HR", "CZ", "DK", "FI", "FR", "DE", "GI", "GR", "HK", "HU", "IE", "JP", "KR", "LV", "LT", "MO", "MT", "NL", "MK", "NO", "PL", "PT", "RO", "RS", "SG", "SK", "SI", "ES", "SE", "CH", "TW", "TH", "GB", "US"],
+        },
+    };
+
+    static async GetLocationsGrid(qweatherCache, setCache) {
+        Console.info("☑️ GetLocationsGrid");
+        const locationsGrid = qweatherCache?.locationsGrid;
+        // cache within 30 days
+        if (locationsGrid?.lastUpdated && locationsGrid.lastUpdated + 30 * 24 * 60 * 60 * 1000 > Date.now()) {
+            Console.info("✅ GetLocationsGrid", "Cache found!");
+            return locationsGrid.data;
+        } else {
+            Console.info("⚠️ GetLocationsGrid", "Cache not found or stale, fetching...");
+            const response = await fetch({
+                headers: locationsGrid?.etag ? { "If-None-Match": locationsGrid?.etag } : undefined,
+                url: "https://raw.githubusercontent.com/NSRingo/QWeather-Location-Grid/refs/heads/main/data/qweather-china-city-list-grid.json",
+            });
+
+            if (response.status === 304) {
+                Console.info("✅ GetLocationsGrid", "Cache not modified");
+                setCache({ ...qweatherCache, locationsGrid: { ...locationsGrid, lastUpdated: Date.now() } });
+                return locationsGrid.data;
+            }
+
+            const newLocationsGrid = JSON.parse(response.body);
+            setCache({
+                ...qweatherCache,
+                locationsGrid: { etag: response.headers.ETag, lastUpdated: Date.now(), data: newLocationsGrid },
+            });
+            Console.info("✅ GetLocationsGrid");
+            return newLocationsGrid;
+        }
+    }
+
+    // Codes by Claude AI
+    static GetLocationInfo(locationsGrid, latitude, longitude) {
+        Console.info("☑️ GetLocationInfo");
+
+        const { gridSize, grid } = locationsGrid;
+
+        // Haversine距离计算
+        const distance = (lat1, lng1, lat2, lng2) => {
+            const R = 6371; // 地球半径(km)
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLng = ((lng2 - lng1) * Math.PI) / 180;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        const getNearbyGridKeys = (lat, lng, radius = 2) => {
+            const centerX = Math.floor(lng / gridSize);
+            const centerY = Math.floor(lat / gridSize);
+            const keys = [];
+
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    keys.push(`${centerX + dx},${centerY + dy}`);
+                }
+            }
+
+            return keys;
+        };
+
+        const findNearestFast = (lat, lng) => {
+            const keys = getNearbyGridKeys(lat, lng, 2);
+            let nearest = null;
+            let minDist = Number.POSITIVE_INFINITY;
+
+            for (const key of keys) {
+                const locations = grid[key];
+                if (!locations) continue;
+
+                for (const loc of locations) {
+                    const dist = distance(lat, lng, loc.latitude, loc.longitude);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = loc;
+                    }
+                }
+            }
+
+            return nearest;
+        };
+
+        const nearest = findNearestFast(latitude, longitude);
+        Console.info("✅ GetLocationInfo");
+        return nearest;
+    }
+
+    /**
+     * 从 FlatBuffer 的 QWeather 预警页面链接中提取地区标识。
+     * Extract the location identifier from a FlatBuffer QWeather severe-weather URL.
+     * @param {string | null | undefined} value 预警页面链接 / Severe-weather URL.
+     * @returns {string | undefined} 地区标识 / Location identifier.
+     */
+    static ParseWeatherAlertPageURL(value) {
+        try {
+            const url = new URL(value);
+            if (url.protocol !== "https:" || url.hostname !== "www.qweather.com") return undefined;
+            if (url.search !== "?from=AppleWeatherService" || url.hash) return undefined;
+            return decodeURIComponent(url.pathname).match(/^\/{1,2}(?:en\/)?severe-weather\/([^/]+)\.html$/)?.[1];
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * 生成 QWeather 灾害预警页面链接。
+     * Build a QWeather severe-weather page URL.
+     * @param {string} identifier 地区标识 / Location identifier.
+     * @param {string} language WeatherKit 语言 / WeatherKit language.
+     * @param {boolean} includeAppleSource 是否附加 Apple 来源参数 / Whether to append the Apple source parameter.
+     * @returns {URL} QWeather 页面链接 / QWeather page URL.
+     */
+    static BuildWeatherAlertPageURL(identifier, language = "zh-CN", includeAppleSource = true) {
+        identifier = identifier?.trim();
+        const url = new URL("https://www.qweather.com");
+        url.pathname = language.toLowerCase().startsWith("en") ? `/en/severe-weather/${identifier}.html` : `/severe-weather/${identifier}.html`;
+        if (includeAppleSource) url.searchParams.set("from", "AppleWeatherService");
+        return url;
+    }
+
+    /**
+     * 生成内部使用的 Apple 天气预警详情链接。
+     * Build the internally rewritten Apple weather alert details URL.
+     * @param {string} identifier 地区标识 / Location identifier.
+     * @param {string} language WeatherKit 语言 / WeatherKit language.
+     * @returns {string} Apple 预警详情链接 / Apple alert details URL.
+     */
+    static BuildAppleAlertDetailsURL(identifier, language = "zh-CN") {
+        return `https://weatherkit.apple.com/alertDetails/index.html?ids=${encodeURIComponent(identifier)}&lang=${encodeURIComponent(language)}&party=qweather`;
+    }
+
+    /**
+     * 从 QWeather HTML 提取原始预警来源记录。
+     * Extract raw alert source records from QWeather HTML.
+     * @param {string} html QWeather 页面 HTML / QWeather page HTML.
+     * @returns {{alerts: Array<object>, areaName: string, source: string}} 提取后的来源集合 / Extracted source collection.
+     */
+    static ExtractWeatherAlertPage(html) {
+        const sourceHtml = String(html ?? "");
+        let city = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<h1[^>]*class=["'][^"']*c-submenu__location[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i);
+        if (!city) {
+            const titleText = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<title>([\s\S]*?)<\/title>/i);
+            city = titleText.replace(/\s*(?:severe weather warning|灾害预警|天气预警).*$/i, "").trim();
+        }
+        const administration = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<span[^>]*class=["'][^"']*c-submenu__location-adm[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+        const dataSource = QWeather.#FirstWeatherAlertPageMatch(sourceHtml, /<a[^>]*class=["'][^"']*data-source__txt[^"']*["'][^>]*>([\s\S]*?)<\/a>/i)
+            .replace(/^(?:预警数据来源|Warning data source)\s*[:：]\s*/i, "")
+            .trim();
+        const starts = Array.from(sourceHtml.matchAll(/<div[^>]*class=["']([^"']*\bc-city-warning-events\b[^"']*)["'][^>]*>/gi), match => ({
+            index: match.index,
+            contentStart: match.index + match[0].length,
+            className: match[1],
+        }));
+        const alerts = [];
+
+        for (const [index, start] of starts.entries()) {
+            let end = index + 1 < starts.length ? starts[index + 1].index : sourceHtml.length;
+            const nearby = sourceHtml.indexOf('<div class="c-city-warning-around">', start.contentStart);
+            if (nearby !== -1 && nearby < end) end = nearby;
+            const block = sourceHtml.slice(start.contentStart, end);
+            const description = QWeather.#FirstWeatherAlertPageMatch(block, /<h3[^>]*>([\s\S]*?)<\/h3>/i);
+            const issueText = QWeather.#FirstWeatherAlertPageMatch(block, /<p[^>]*>\s*((?:Issue\s+date|发布\s*日期)\s*[:：][\s\S]*?)<\/p>/i)
+                .replace(/^(?:Issue\s+date|发布\s*日期)\s*[:：]\s*/i, "")
+                .trim();
+            const message = QWeather.#FirstWeatherAlertPageMatch(block, /<p[^>]*class=["'][^"']*warning-events__txt[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
+            const standardBlock = block.match(/<div[^>]*class=["'][^"']*warning-explain[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
+            const standard = QWeather.#FirstWeatherAlertPageMatch(standardBlock, /<h4[^>]*>[\s\S]*?<\/h4>\s*<p[^>]*>([\s\S]*?)<\/p>/i);
             const guideBlock = block.match(/<div[^>]*class=["'][^"']*warning-defense__txt[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
             const guidelines = Array.from(guideBlock.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi), match =>
                 QWeather.#DecodeWeatherAlertPageHTML(match[1])
