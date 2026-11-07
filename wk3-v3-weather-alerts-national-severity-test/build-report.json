@@ -20,10 +20,10 @@
   "responseBundleSha256": "b32ffdbaf218df34bf995037ea3600c078e751530543f77b31d47bf56903a19d",
   "requestBundleBytes": 608244,
   "responseBundleBytes": 790372,
-  "scriptPathsAssetCommit": "ASSET_COMMIT",
-  "assetCommit": "ASSET_COMMIT",
+  "scriptPathsAssetCommit": "1cac82d2f98c6414cd505ebed84a7902dde61394",
+  "assetCommit": "1cac82d2f98c6414cd505ebed84a7902dde61394",
   "moduleFile": "WK3-Weather-Alerts-National-Severity-Test.sgmodule",
-  "moduleSha256": "PENDING_ASSET_SHA",
+  "moduleSha256": "471aec5333371a855c57db9f1db5cf7635148de0b013d938a32d5aa3c1ebffc3",
   "registry": {
     "version": "2026-11-07.3",
     "nationalBase": "CMA Order 16; 14 national types",
