@@ -12288,17 +12288,17 @@ class WK3WeatherAlerts {
         Object.defineProperty(result, "pageDiagnostics", { value: extracted.diagnostics ?? {}, enumerable: false });
         Object.defineProperty(result, "sourceTypeTexts", {
             value: extracted.alerts.map((alert, index) => ({
-                eventName: alert.eventName ?? "",
+                eventName: alert.eventName ?? alert.eventType?.name ?? "",
                 description: alert.description ?? "",
                 eventTypeCode: alert.eventType?.code ?? alert.eventTypeCode ?? null,
                 qweatherSeverity: normalizeQWeatherSeverity(alert.qweatherSeverity ?? alert.severity),
-                governmentColor: alert.governmentColor ?? null,
+                governmentColor: normalizeGovernmentColor(alert.governmentColor ?? alert.color?.name ?? alert.color?.code),
                 messageType: normalizeAlertLifecycle(alert.messageType),
                 issuedTime: alert.issuedTime ?? "",
                 regionIdentifier: identifier,
                 type: resolveWeatherAlertType({
                     code: alert.eventType?.code ?? alert.eventTypeCode,
-                    name: alert.eventName ?? alert.description,
+                    name: alert.eventName ?? alert.eventType?.name ?? alert.description,
                     regionIdentifier: identifier,
                 }),
                 sourceIndex: index,
