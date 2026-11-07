@@ -1,0 +1,12 @@
+{
+  "name": "wk3-v3-weather-alerts-national-registry-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-weather-alerts-bundle.mjs",
+    "test": "node --test tests/wk3NextHourFlatBuffer.test.mjs tests/nextHourBundleReplay.test.mjs tests/weatherAlertTypeRegistry.test.mjs tests/weatherAlerts.test.mjs tests/weatherAlertsBundleReplay.test.mjs tests/moduleContract.test.mjs"
+  },
+  "dependencies": {
+    "flatbuffers": "24.12.23"
+  }
+}
