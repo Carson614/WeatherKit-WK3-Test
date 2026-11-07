@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 2,
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-national-crosswalk-update-test-20261107",
+  "baseExperimentModuleCommit": "71d462fb4a6abdd331ca7dec90fd4dc44eb26de8",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "license": "Apache-2.0"
+  },
+  "buildType": "fixed-anchor augmentation of the iPhone-verified Next Hour Provider Conversion bundles; not a complete Rollup source build",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "af8f4c1bae62d763526dbde78bcff5f16a79eff1e3b506ae36a340afe75fa510",
+  "responseBundleSha256": "bd28b66cbe7c597de3364df8ca413f71c4e4b26f1e9cd2476378716e13db3e82",
+  "requestBundleBytes": 610879,
+  "responseBundleBytes": 793007,
+  "scriptPathsAssetCommit": "bd0894c315f7034cc529125d614c7d9be213fb2e",
+  "assetCommit": "bd0894c315f7034cc529125d614c7d9be213fb2e",
+  "moduleFile": "WK3-Weather-Alerts-National-Crosswalk-Update-Test.sgmodule",
+  "moduleSha256": "606d570a3caab918750e2e50ad24add944adae499f3a124ae94e8d7c3de16f5f",
+  "registry": {
+    "version": "2026-11-07.5",
+    "nationalBase": "CMA Order 16, 14 categories",
+    "nationalLevelSource": "CMA Order 16 national signal appendix; applicable colors differ by hazard",
+    "capColorCrosswalkSource": "QX/T 408-2017 Table 6",
+    "qweatherEventSource": "https://dev.qweather.com/docs/api/warning/alert-events/",
+    "qweatherApiSchema": "https://dev.qweather.com/docs/api/warning/weather-alert/",
+    "qweatherLifecycle": "https://dev.qweather.com/docs/api/warning/alert-changes/",
+    "qweatherStructuredApiIntegrated": false,
+    "apiAuthAssumed": false,
+    "htmlFallbackPreserved": true,
+    "exactAliases": [
+      "分区暴雪 -> 暴雪"
+    ],
+    "broadNamesMapped": false,
+    "typeSpecificLevelApplicability": true,
+    "capSevereAndExtremeToAppleRawMapping": false
+  },
+  "severityEvidence": {
+    "capByGovernmentColor": {
+      "blue": "minor",
+      "yellow": "moderate",
+      "orange": "severe",
+      "red": "extreme"
+    },
+    "observedWK3RawValues": {
+      "3": "moderate",
+      "4": "minor"
+    },
+    "enabledHTMLColors": [
+      "blue",
+      "yellow"
+    ],
+    "failClosedColors": [
+      "orange",
+      "red"
+    ],
+    "raw2": "unknown; never inferred by ordering",
+    "realEvidence": [
+      "Upstream WK3 v3.3.6 source labels only raw3=MODERATE and raw4=MINOR among observed values",
+      "Fangshan snowstorm and road-icing yellow match was real-device verified",
+      "Zhangjiagang cold-wave yellow match was real-device logged",
+      "Turpan blue gale real-device match: raw4, type/region/time/unique checks passed"
+    ],
+    "officialEvidence": [
+      "QX/T 408-2017 Table 6: blue Minor; yellow Moderate; orange Severe; red Extreme",
+      "CMA Order 16 defines the 14 national categories and type-specific government colors",
+      "QWeather API docs keep severity and color as separate fields; example gives blue gale severity minor"
+    ],
+    "syntheticOnly": [
+      "Generic all-14-type applicable blue/raw4 and yellow/raw3 regression matrix",
+      "All orange/red Apple WK3 raw enum cases and inconsistent API/color evidence"
+    ],
+    "standardAppendixConflict": "QX/T 408-2017 Appendix A example appears inconsistent with Table 6 for yellow; implementation follows normative Table 6 and records this discrepancy",
+    "limitations": "Orange/red CAP mapping is known, but corresponding Apple WK3 raw values are unverified. No nationwide Apple-device pairing is claimed."
+  },
+  "updateHandling": {
+    "previousCause": "Any update/changed lifecycle was rejected before exact issue-time and candidate checks, producing source_updated",
+    "acceptedLifecycle": "Current QWeather page update may match only with exact Apple issuedTime, strict region/type/severity, and one unique candidate",
+    "staleAppleRule": "A newer same-type update rejects older Apple data as source_update_newer_candidate",
+    "mismatchRule": "Nonmatching update issue time returns source_update_version_mismatch",
+    "cancelRule": "cancel/解除 and unknown lifecycle are never candidates",
+    "htmlIdentityLimit": "Public page parsing has no structured QWeather alert id/supersedes chain; exact issue time plus current page and strict predicates is the available binding evidence, not an API-level identity proof"
+  },
+  "sampleCollection": {
+    "ledger": "metadata-only public sample normalizer/deduplicator; records source, capture time, region, type, color, lifecycle, issue time and evidence grade",
+    "livePublicCrawlCompleted": false,
+    "publicPageAccess": "QWeather public page returned HTTP 403 in this environment",
+    "officialApiAccess": "QWeather official alert API requires configured authentication; no token was requested or stored",
+    "fixture": "official API documentation update example, explicitly marked documentation-only and not Apple-WK3 paired",
+    "evidencePolicy": "Public-page/API samples never count as Apple WK3 real-device severity pairs"
+  },
+  "diagnostics": {
+    "header": "X-WK3-Alerts-Diag",
+    "eventFields": "status, predicate counts, Apple raw enum, QWeather severity, government color",
+    "sensitiveFields": false
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 81,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response bundles",
+    "aqScaleIndexCategoryYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "wk3UnknownRootFields": true,
+    "fangshanDualAlertRegression": true,
+    "turpanBlueGaleRegression": true,
+    "updateCurrentExactVersion": true,
+    "updateSupersededStaleRejected": true,
+    "updateLifecycleEvidenceLimit": "HTML omits structured message id and supersedes chain",
+    "nationalColorApplicabilityCoverage": true,
+    "sourceFailureFallback": true,
+    "iPhoneAlertAcceptance": false,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "fullBuildNote": "The complete Rollup build is not claimed. A prior baseline attempt was blocked by private @nsringo/weatherkit GitHub Packages HTTP 401; this artifact uses the fixed-anchor augmentation script.",
+    "testCommand": "npm test"
+  },
+  "license": "Apache-2.0; upstream attribution retained",
+  "installFile": "WK3-Weather-Alerts-National-Crosswalk-Update-Test.sgmodule"
+}
