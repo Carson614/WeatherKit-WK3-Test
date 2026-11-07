@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-11-07",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-weather-alerts-turpan-blue-gale-severity-test-20261107",
+  "baseCommit": "a7a0578a0fe764cff786dd5e9bcdbaa0110f829e",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "areaIdFallbackBaselineCommit": "be9c44cfba0ad54104f449b1a62f2280de592025",
+  "snowAliasBaseCommit": "b9ccf4dec00d215d6e8e208c93c725ba571defb5",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "license": "Apache-2.0"
+  },
+  "buildType": "Deterministic fixed-anchor augmentation of the iPhone-verified bundles; not a complete Rollup source build",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "8940e0506054ecc60950605e12733ff4eca56a8417f85a72092869bea5ff4942",
+  "responseBundleSha256": "26fc065f706d9f504af40d58d6dd785465841898a40ac21157be9bcb116495e6",
+  "requestBundleBytes": 608972,
+  "responseBundleBytes": 791100,
+  "scriptPathsAssetCommit": "b7bb68c2271f73bd2a02d7fddef0555ef0e3ab11",
+  "assetCommit": "b7bb68c2271f73bd2a02d7fddef0555ef0e3ab11",
+  "moduleFile": "WK3-Weather-Alerts-Turpan-Blue-Gale-Severity-Test.sgmodule",
+  "moduleSha256": "0f702ff0153ca34557f6b99c56dd6f766dffad76b2bea4d501f391c9ab8bb861",
+  "registry": {
+    "version": "2026-11-07.4",
+    "nationalBase": "CMA Order 16; 14 national types",
+    "qweatherEventSource": "https://dev.qweather.com/docs/api/warning/alert-events/",
+    "qweatherAlertSchema": "https://dev.qweather.com/docs/api/warning/weather-alert/",
+    "qweatherStructuredApiIntegrated": false,
+    "apiAuthAssumed": false,
+    "htmlFallbackPreserved": true,
+    "exactAliases": [
+      "分区暴雪 -> 暴雪"
+    ],
+    "broadHazardNamesMapped": false,
+    "genericPartitionPrefixRemoval": false,
+    "governmentColorApplicability": {
+      "cn_typhoon": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_rainstorm": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_snowstorm": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_cold_wave": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_gale": [
+        "blue",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_sandstorm": [
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_high_temperature": [
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_drought": [
+        "orange",
+        "red"
+      ],
+      "cn_lightning": [
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_hail": [
+        "orange",
+        "red"
+      ],
+      "cn_frost": [
+        "blue",
+        "yellow",
+        "orange"
+      ],
+      "cn_dense_fog": [
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "cn_haze": [
+        "yellow",
+        "orange"
+      ],
+      "cn_road_icing": [
+        "yellow",
+        "orange",
+        "red"
+      ]
+    },
+    "appleWK3RawEvidence": {
+      "3": "moderate",
+      "4": "minor"
+    },
+    "htmlColorCrosswalk": [
+      {
+        "alertTypeId": "cn.gale",
+        "color": "blue",
+        "rawSeverity": 4,
+        "evidence": "User Turpan real diagnostic tuple + official QWeather blue-gale/minor API example + observed WK3 b66 raw4=MINOR"
+      },
+      {
+        "alertTypeId": "cn.snowstorm",
+        "color": "yellow",
+        "rawSeverity": 3,
+        "evidence": "Fangshan dual-warning real-device success"
+      },
+      {
+        "alertTypeId": "cn.road_icing",
+        "color": "yellow",
+        "rawSeverity": 3,
+        "evidence": "Fangshan dual-warning real-device success"
+      },
+      {
+        "alertTypeId": "cn.cold_wave",
+        "color": "yellow",
+        "rawSeverity": 3,
+        "evidence": "Zhangjiagang real-device matched event/log"
+      }
+    ],
+    "unverifiedColors": [
+      "orange",
+      "red"
+    ],
+    "unsupportedHtmlTypeColorPairs": "all pairs outside the exact blue/raw4 cn.gale and three yellow/raw3 cases fail closed",
+    "wk3SeveritySource": "https://github.com/patrickyanxxxxx/WeatherKit-WK3/blob/v3.3.6/src/wk3/class/WK3Alerts.mjs#L3-L16",
+    "qweatherBlueGaleMinorExample": "Official QWeather API example has eventType.code=1006, color=blue, severity=minor",
+    "turpanRealDiagnosticTuple": "raw4, cn.gale, blue, region candidate=1, type candidate=1, exact issue time match=1, unique candidate=1; API severity unavailable",
+    "partiallyVerifiedColors": [
+      "blue",
+      "yellow"
+    ]
+  },
+  "diagnostics": {
+    "header": "X-WK3-Alerts-Diag",
+    "eventFields": "status,r(region candidates),t(type candidates),s(severity candidates),p(exact issued-time matches),c(final candidates),raw(Apple raw enum),q(QWeather API severity),g(government color)",
+    "noCoordinates": true,
+    "noEventIds": true,
+    "noURLsOrTokens": true
+  },
+  "feature": {
+    "strictKeys": [
+      "event type",
+      "region",
+      "government/API severity cross-check",
+      "exact issuedTime",
+      "active lifecycle",
+      "unique candidate",
+      "original Apple event identity"
+    ],
+    "allOrNothingSharedRoute": true,
+    "selectiveDetailRoute": true,
+    "unverifiedFieldsPreserveAppleResponse": true,
+    "aqiLogicChanged": false,
+    "minuteRainLogicChanged": false
+  },
+  "severityEvidence": {
+    "real": [
+      "WK3 v3.3.6 b66 source records observed enum raw3=MODERATE and raw4=MINOR, paired Apple v3 JSON/WK3 capture basis",
+      "Fangshan snowstorm and road-icing yellow warnings matched in iPhone testing",
+      "Zhangjiagang cold-wave raw3 matched QWeather yellow at exact issue time",
+      "User Turpan diagnostic: raw4, cn.gale, QWeather blue, region/type/exact issue-time and uniqueness each count one",
+      "Official QWeather API example for China gale code 1006 lists color blue and severity minor"
+    ],
+    "syntheticOnly": [
+      "all 14 type names and official QWeather event codes as a parameterized registry test",
+      "national government-color applicability matrix and all unverified-pair fallback cases",
+      "the Turpan real diagnostic tuple replayed through a synthesized WK3 and QWeather HTML fixture"
+    ],
+    "turpanRawEnumProvided": true,
+    "unverifiedColors": [
+      "orange",
+      "red"
+    ],
+    "turpanRealPairProvided": true,
+    "blueGaleCrosswalk": {
+      "hazardId": "cn.gale",
+      "color": "blue",
+      "wk3RawSeverity": 4,
+      "apiSeverity": "minor",
+      "scope": "one hazard/color/raw tuple only"
+    },
+    "partiallyVerifiedColors": [
+      "blue",
+      "yellow"
+    ]
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 79,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response bundles",
+    "bundleHashesMatchReport": true,
+    "aqScaleIndexCategoryYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "wk3UnknownRootFields": true,
+    "fangshanDualAlertRegression": true,
+    "typeSeverityTimeRegionDiagnostics": true,
+    "qweatherSourceFailureFallback": true,
+    "nationalColorApplicabilityCoverage": true,
+    "iPhoneAlertAcceptance": false,
+    "turpanRawEnumProvided": true,
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "fullBuildNote": "The complete Rollup source build was not completed; a prior baseline build hit private @nsringo/weatherkit GitHub Packages HTTP 401. This test bundle was rebuilt by the documented fixed-anchor augmentation script.",
+    "testCommand": "npm test",
+    "turpanRealPairProvided": true,
+    "turpanBlueGaleReplay": true,
+    "galeCrosswalkScope": "cn.gale + blue + raw4 only",
+    "qweatherNativeAPIAuthAssumed": false
+  },
+  "license": "Apache-2.0; upstream attribution retained",
+  "installFile": "WK3-Weather-Alerts-Turpan-Blue-Gale-Severity-Test.sgmodule"
+}
