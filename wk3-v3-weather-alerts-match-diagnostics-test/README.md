@@ -10,7 +10,7 @@ This diagnostic build continues through every Apple event and reports only safe 
 
 `WK3WA/2;...;events=2;src=2;parse=blocks,skippedTitle,skippedIssueTime,unknownSeverity;e0=type_no_match:r2t0s0p0c0;e1=issue_time_no_match:r2t1s1p0c0;result=event_unmatched`
 
-`r/t/s/p/c` are candidate counts after region, type, severity, exact publication time, and final uniqueness checks. Event indexes follow Apple's vector order. No event title, severity value, timestamp, area code/name, coordinates, ID, token, or response body is logged. At most four per-event entries are emitted.
+`r/t/s/p/c` are candidate counts after region, type, severity, exact publication time, and final uniqueness checks. Region means the Apple alert area ID must agree with its QWeather page ID, and provider event candidates come from that page. The current public HTML does not expose a separate per-alert geocode; the source records inherit the page region. Event indexes follow Apple's vector order. No event title, severity value, timestamp, area code/name, coordinates, ID, token, or response body is logged. At most four per-event entries are emitted.
 
 QWeather's public page can describe a municipal warning covering several districts (including Fangshan) while the page itself is scoped to one district. The page may also show the warning action time in the headline separately from its `Issue date` publication time. The current matcher uses the page location and `Issue date`; neither source field is silently substituted. See the [QWeather Shijingshan example](https://www.qweather.com/en/severe-weather/shijingshan-101011000.html) observed on 2026-11-07.
 
