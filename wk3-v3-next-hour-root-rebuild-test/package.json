@@ -1,0 +1,12 @@
+{
+  "name": "wk3-v3-next-hour-root-rebuild-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-next-hour-bundle.mjs",
+    "test": "node --test tests/wk3NextHourFlatBuffer.test.mjs tests/nextHourBundleReplay.test.mjs tests/moduleContract.test.mjs"
+  },
+  "dependencies": {
+    "flatbuffers": "24.12.23"
+  }
+}
