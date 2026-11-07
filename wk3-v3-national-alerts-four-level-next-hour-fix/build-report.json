@@ -19,10 +19,10 @@
   "responseBundleSha256": "7161776ae458bb0c2d83d5646af4e208cc8126f97cec6ef5d9f2a8a16710a08b",
   "requestBundleBytes": 618255,
   "responseBundleBytes": 801203,
-  "scriptPathsAssetCommit": "d1aa9d932481785641d3f50c2cd29d737cc34a5f",
-  "assetCommit": "d1aa9d932481785641d3f50c2cd29d737cc34a5f",
+  "scriptPathsAssetCommit": "cfafdda08854b838ccb7893a54682bdf9743a02d",
+  "assetCommit": "cfafdda08854b838ccb7893a54682bdf9743a02d",
   "moduleFile": "WK3-National-Alerts-Four-Level-Next-Hour-Fix.sgmodule",
-  "moduleSha256": "6e7f619ef8aab74bdd8bbcf38b5d8352d08516c17b43063ef9a62f24c1a6d28d",
+  "moduleSha256": "f201687029f5a0f9c2ab90d1e92ded6856bd0b97f06b1d7a9036662dccc452a7",
   "registry": {
     "version": "2026-11-08.1",
     "nationalBase": "CMA Order 16, 14 categories",
