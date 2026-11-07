@@ -1,0 +1,11 @@
+{
+  "name": "wk3-v3-minutely-root-slot-research",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/wk3NextHourFlatBuffer.test.mjs"
+  },
+  "dependencies": {
+    "flatbuffers": "24.12.23"
+  }
+}
