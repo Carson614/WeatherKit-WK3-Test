@@ -10362,6 +10362,7 @@ function buildTypeDiagnostics(appleAlerts, sourceAlerts, regionIdentifier) {
             normalizedMatchType: normalizedAlertType(matchText),
             matchedType: resolved?.id ?? "",
             typeId: resolved?.id ?? "",
+            areaName: String(source?.areaName ?? ""),
             alias: resolved?.alias ?? "none",
             eventTypeCode: raw.eventTypeCode ?? null,
             qweatherSeverity: raw.qweatherSeverity ?? "unknown",
@@ -10453,6 +10454,7 @@ function buildWK3Raw2SeverityEvidence(typeDiagnostics) {
                             qIndex: pair.qweatherIndex,
                             qRawEventName: text(source.rawEventName),
                             qRawDescription: text(source.rawDescription),
+                            qRegionName: text(source.areaName),
                             qType: text(source.normalizedMatchType || source.normalizedEventName),
                             qTypeId: text(source.typeId),
                             qWeatherSeverity: new Set(["minor", "moderate", "severe", "extreme", "unknown"]).has(source.qweatherSeverity)

@@ -12,7 +12,7 @@ test("raw2 diagnostic identifies the candidate pairing without assigning Severe"
             { index: 1, normalized: "道路结冰", typeId: "cn.road_icing", rawSeverity: 3, issuedTime: issue },
         ],
         qweather: [
-            { index: 0, rawEventName: "暴雪橙色预警信号", rawDescription: "暴雪橙色预警详情", normalizedMatchType: "暴雪", typeId: "cn.snowstorm", qweatherSeverity: "unknown", governmentColor: "orange", issuedTime: issue, lifecycle: "active" },
+            { index: 0, rawEventName: "暴雪橙色预警信号", rawDescription: "暴雪橙色预警详情", areaName: "张家港市", normalizedMatchType: "暴雪", typeId: "cn.snowstorm", qweatherSeverity: "unknown", governmentColor: "orange", issuedTime: issue, lifecycle: "active" },
         ],
         comparisons: [
             { appleIndex: 0, qweatherIndex: 0, region: true, type: true, severity: false, issueTime: true, uniqueCandidate: false, matched: false },
@@ -35,6 +35,7 @@ test("raw2 diagnostic identifies the candidate pairing without assigning Severe"
             qIndex: 0,
             qRawEventName: "暴雪橙色预警信号",
             qRawDescription: "暴雪橙色预警详情",
+            qRegionName: "张家港市",
             qType: "暴雪",
             qTypeId: "cn.snowstorm",
             qWeatherSeverity: "unknown",
@@ -58,12 +59,13 @@ test("raw2 diagnostic identifies the candidate pairing without assigning Severe"
 test("raw2 diagnostic remains bounded and excludes identity, URL, coordinates and location fields", () => {
     const evidence = buildWK3Raw2SeverityEvidence({
         apple: [{ index: 0, rawDescription: `\u0000${"暴雪".repeat(80)}`, normalized: `\u0000${"暴雪".repeat(80)}`, typeId: "cn.snowstorm", rawSeverity: 2, issuedTime: issue }],
-        qweather: [{ index: 0, rawEventName: `暴雪${"橙色预警".repeat(20)}`, normalizedMatchType: "暴雪", typeId: "cn.snowstorm", qweatherSeverity: "severe", governmentColor: "orange", issuedTime: issue, lifecycle: "update" }],
+        qweather: [{ index: 0, rawEventName: `暴雪${"橙色预警".repeat(20)}`, areaName: "张家港市", normalizedMatchType: "暴雪", typeId: "cn.snowstorm", qweatherSeverity: "severe", governmentColor: "orange", issuedTime: issue, lifecycle: "update" }],
         comparisons: [{ appleIndex: 0, qweatherIndex: 0, region: true, type: true, severity: false, issueTime: true, uniqueCandidate: true, matched: false }],
     });
     assert.ok(evidence[0].appleType.length <= 64);
     assert.ok(evidence[0].appleRawDescription.length <= 64);
     assert.ok(evidence[0].candidates[0].qRawEventName.length <= 64);
+    assert.ok(evidence[0].candidates[0].qRegionName.length <= 64);
     const serialized = JSON.stringify(evidence);
     assert.doesNotMatch(serialized, /(?:"(?:eventId|alertId|id|detailsUrl|url|coordinates|latitude|longitude|token|areaId|regionIdentifier)"\s*:)/i);
     assert.doesNotMatch(serialized, /https?:\/\//i);

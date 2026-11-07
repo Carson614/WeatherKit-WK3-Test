@@ -315,6 +315,7 @@ test("raw2 orange evidence is logged anonymously while the alert stays byte-for-
     assert.equal(evidence.identityCandidateCount, 1);
     assert.equal(evidence.identityUnique, true);
     assert.equal(evidence.candidates[0].qRawEventName, "暴雪橙色预警");
+    assert.equal(evidence.candidates[0].qRegionName, "张家港市");
     assert.equal(evidence.candidates[0].governmentColor, "orange");
     assert.equal(evidence.candidates[0].severityMatch, false);
     assert.equal(evidence.candidates[0].issueTimeMatch, true);

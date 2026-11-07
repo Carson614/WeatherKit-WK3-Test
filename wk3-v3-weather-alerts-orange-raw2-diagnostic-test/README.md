@@ -21,7 +21,7 @@ QX/T 408—2017 表 6 规定政府颜色到 CAP severity：蓝→Minor、黄→M
 
 ## 本版新增诊断
 
-只有出现 Apple raw2 时，Surge 脚本日志额外输出一条 `[WK3WA raw2-evidence]`。它包含 Apple 原始及归一化类型、注册类型、raw2、Apple 发布时间、和风候选原始标题及归一化类型、政府颜色、API severity、时间/类型/地区比较、活动状态及去除 severity 后的唯一身份候选数，并明确写 `appleJsonSeverityEvidence=not_captured`。
+只有出现 Apple raw2 时，Surge 脚本日志额外输出一条 `[WK3WA raw2-evidence]`。它包含 Apple 原始及归一化类型、注册类型、raw2、Apple 发布时间、和风候选原始标题及归一化类型、和风页面地区名、政府颜色、API severity、时间/类型/地区比较、活动状态及去除 severity 后的唯一身份候选数，并明确写 `appleJsonSeverityEvidence=not_captured`。
 
 诊断不输出 Apple 事件 ID、和风事件 ID、地区编码、位置坐标、请求 URL、令牌或完整响应；也不修改回退决策。若身份候选唯一但严重程度未验证，`identityUnique=true` 同时 `severityMatch=false`，最终仍是 `severity_unverified`。证明 raw2 为 Severe 仍需同一事件的 WK3 raw2 与 Apple JSON `severity=severe` 直接配对；当前请求详情不自动取得该 JSON 字段。
 

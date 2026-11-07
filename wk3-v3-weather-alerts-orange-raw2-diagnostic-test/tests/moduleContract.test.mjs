@@ -65,6 +65,7 @@ test("registry separates hazard type, government color, API severity, and WK3 ra
     assert.match(response, /appleJsonSeverityEvidence/);
     assert.match(response, /appleRawDescription/);
     assert.match(response, /qRawEventName/);
+    assert.match(response, /qRegionName/);
     assert.match(response, /identityCandidateCount/);
     assert.match(response, /counts\.issued/);
     assert.doesNotMatch(response, /source_updated/);
