@@ -1,0 +1,13 @@
+{
+  "name": "wk2-watch-aqi-companion-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/watchAqiFinalBundle.test.mjs",
+    "check": "node --check response.bundle.js && node --check watch-aqi-guard.runtime.js && node --check build.mjs && npm test"
+  },
+  "dependencies": {
+    "flatbuffers": "24.12.23"
+  }
+}

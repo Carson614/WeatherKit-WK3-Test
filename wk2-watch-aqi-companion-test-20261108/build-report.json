@@ -1,0 +1,20 @@
+{
+  "upstream": {
+    "repository": "https://github.com/NSRingo/WeatherKit",
+    "release": "v3.3.2",
+    "sourceCommit": "c40e8f8a13c8304a7ef500cb74acc5948af14b3f",
+    "responseBundleSha256": "ce1db90d77c44fce972db0c2e319845fc1d6a276d41d772c0294882e59d7f999"
+  },
+  "output": {
+    "file": "response.bundle.js",
+    "sha256": "71bb74845633fcd980fdc10bafc74bced9737da71e697375b28fa3d814e5deef",
+    "guardSha256": "ab8d02c4f26aec51270173347a9401799b5219b9440fcf95aa47a215a603aa6e"
+  },
+  "constraints": [
+    "Module rule matches only /api/v2/weather/.",
+    "Runtime requires explicit country=CN, explicit airQuality dataSet, WK2.Weather FlatBuffer response, and valid coordinates/root table.",
+    "Existing AQ roots are preserved byte-for-byte and are not sent to a provider.",
+    "Missing AQ root is encoded only through the pinned NSRingo WeatherKit2 codec.",
+    "Output must contain fresh, in-range EPA_NowCast.2604 AQI with matching category and provider coordinates within 10 km; otherwise original bytes are restored."
+  ]
+}
