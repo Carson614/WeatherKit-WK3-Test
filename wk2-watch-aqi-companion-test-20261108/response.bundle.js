@@ -11,6 +11,7 @@ globalThis.__wk2WatchAQI = (() => {
     const state = { original: "unknown", sourceCalled: false, encodeFailed: false, scriptFailed: false };
     const ownDone = $done;
     const response = $response;
+    const responseStatus = statusCode(response?.status ?? response?.statusCode);
     const originalBody = response?.bodyBytes ?? response?.body;
     const originalBytes = asBytes(originalBody);
     const request = $request;
@@ -32,6 +33,13 @@ globalThis.__wk2WatchAQI = (() => {
 
     function parseURL(value) {
         try { return new URL(value); } catch { return undefined; }
+    }
+
+    function statusCode(value) {
+        const numeric = Number(value);
+        if (Number.isInteger(numeric)) return numeric;
+        const match = String(value ?? "").match(/\b([1-5]\d\d)\b/);
+        return match ? Number(match[1]) : undefined;
     }
 
     function parseCoordinates(url) {
@@ -210,6 +218,7 @@ globalThis.__wk2WatchAQI = (() => {
     const eligible = requestURL?.hostname === "weatherkit.apple.com"
         && requestURL.pathname.startsWith("/api/v2/weather/")
         && method === "GET"
+        && responseStatus >= 200 && responseStatus < 300
         && requestURL.searchParams.get("country")?.toUpperCase() === "CN"
         && explicitlyRequestsAQ
         && media === "wk2"
@@ -219,7 +228,8 @@ globalThis.__wk2WatchAQI = (() => {
 
     if (!eligible) {
         const result = requestURL?.searchParams.get("country")?.toUpperCase() !== "CN" ? "country_skip"
-            : !explicitlyRequestsAQ ? "dataset_skip"
+            : !(responseStatus >= 200 && responseStatus < 300) ? "status_skip"
+                : !explicitlyRequestsAQ ? "dataset_skip"
                 : media !== "wk2" ? "response_type_skip"
                     : aqState === "invalid" || !originalBytes ? "invalid_response"
                         : !requestCoordinates ? "request_invalid" : "scope_skip";

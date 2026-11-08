@@ -5,7 +5,7 @@
 #!icon = https://developer.apple.com/assets/elements/icons/weatherkit/weatherkit-128x128.png
 #!category =  iRingo
 #!date = 2026-11-08
-#!version = wk2-watch-aqi-companion-test-2026.11.08-r1
+#!version = wk2-watch-aqi-companion-test-2026.11.08-r2
 #!arguments = DataSets:"airQuality",AirQuality.Current.Pollutants.Provider:"ColorfulClouds",AirQuality.Current.Pollutants.Units.Replace:"",AirQuality.Current.Pollutants.Units.Mode:"Scale",AirQuality.Current.Index.Replace:"HJ6332012,EU.EAQI,CN_AQHI,EPA_NowCast",AirQuality.Current.Index.Provider:"ColorfulCloudsUS",AirQuality.Current.Index.ForceCNPrimaryPollutants:true,AirQuality.Comparison.ReplaceWhenCurrentChange:true,AirQuality.Comparison.Yesterday.IndexProvider:"ColorfulCloudsUS",Storage:"Argument",LogLevel:"OFF"
 #!arguments-desc = AQI-only WK2 companion. Existing Apple AQI products are kept byte-for-byte. New AQI data is accepted only when EPA_NowCast.2604, index/category, source freshness, and source coordinates validate. DataSets is fixed to airQuality. This module does not handle v1/v3, availability, alerts, rain, or snow.
 

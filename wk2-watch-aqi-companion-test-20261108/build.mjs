@@ -49,7 +49,7 @@ const report = {
     },
     constraints: [
         "Module rule matches only /api/v2/weather/.",
-        "Runtime requires explicit country=CN, explicit airQuality dataSet, WK2.Weather FlatBuffer response, and valid coordinates/root table.",
+    "Runtime requires a 2xx response, explicit country=CN, explicit airQuality dataSet, WK2.Weather FlatBuffer response, and valid coordinates/root table.",
         "Existing AQ roots are preserved byte-for-byte and are not sent to a provider.",
         "Missing AQ root is encoded only through the pinned NSRingo WeatherKit2 codec.",
         "Output must contain fresh, in-range EPA_NowCast.2604 AQI with matching category and provider coordinates within 10 km; otherwise original bytes are restored.",

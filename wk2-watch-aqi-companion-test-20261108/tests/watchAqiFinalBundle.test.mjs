@@ -185,7 +185,7 @@ function hourlyResponse() {
     };
 }
 
-async function execute({ bytes = createWeatherRoot(), url = requestURL, contentType = "application/vnd.apple.flatbuffer;messageType=WK2.Weather", realtime = realtimeResponse(), yesterday = hourlyResponse(), sourceFailure = false } = {}) {
+async function execute({ bytes = createWeatherRoot(), url = requestURL, responseStatus = 200, contentType = "application/vnd.apple.flatbuffer;messageType=WK2.Weather", realtime = realtimeResponse(), yesterday = hourlyResponse(), sourceFailure = false } = {}) {
     const requests = [];
     const logs = [];
     let resolveDone;
@@ -210,7 +210,7 @@ async function execute({ bytes = createWeatherRoot(), url = requestURL, contentT
             url,
             headers: { Accept: "application/vnd.apple.flatbuffer;messageType=WK2.Weather" },
         },
-        $response: { status: 200, headers: { "Content-Type": contentType }, body: bytes },
+        $response: { status: responseStatus, headers: { "Content-Type": contentType }, body: bytes },
         $argument: "DataSets=airQuality&AirQuality.Current.Pollutants.Provider=ColorfulClouds&AirQuality.Current.Pollutants.Units.Replace=&AirQuality.Current.Pollutants.Units.Mode=Scale&AirQuality.Current.Index.Replace=HJ6332012,EU.EAQI,CN_AQHI,EPA_NowCast&AirQuality.Current.Index.Provider=ColorfulCloudsUS&AirQuality.Current.Index.ForceCNPrimaryPollutants=true&AirQuality.Comparison.ReplaceWhenCurrentChange=true&AirQuality.Comparison.Yesterday.IndexProvider=ColorfulCloudsUS&Storage=Argument&LogLevel=OFF",
         $persistentStore: { read: () => null, write: () => true },
         $httpClient: {
@@ -331,6 +331,7 @@ test("final bundle passes through non-CN, requests without airQuality, and non-W
     const cases = [
         { url: requestURL.replace("country=CN", "country=US"), expected: /country_skip/ },
         { url: requestURL.replace("airQuality,currentWeather", "currentWeather"), expected: /dataset_skip/ },
+        { responseStatus: 503, expected: /status_skip/ },
         { contentType: "application/json", expected: /response_type_skip/ },
         { bytes: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]), expected: /invalid_response/ },
     ];

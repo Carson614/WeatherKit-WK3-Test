@@ -1,6 +1,6 @@
 # WK2 Watch AQI Companion Test
 
-独立 WK2 实验模块，用于 Apple Watch 请求没有 `airQuality` 根产品时尝试安全补入彩云美国 AQI。它只匹配 `weatherkit.apple.com/api/v2/weather/`；运行时还要求 GET、`country=CN`、请求数据集明确包含 `airQuality`、WK2.Weather FlatBuffer 正常且路径坐标有效。
+独立 WK2 实验模块，用于 Apple Watch 请求没有 `airQuality` 根产品时尝试安全补入彩云美国 AQI。它只匹配 `weatherkit.apple.com/api/v2/weather/`；运行时还要求 GET、成功的 HTTP 状态、`country=CN`、请求数据集明确包含 `airQuality`、WK2.Weather FlatBuffer 正常且路径坐标有效。
 
 ## 功能与边界
 

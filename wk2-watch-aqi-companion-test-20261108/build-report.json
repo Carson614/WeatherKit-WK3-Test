@@ -7,12 +7,12 @@
   },
   "output": {
     "file": "response.bundle.js",
-    "sha256": "71bb74845633fcd980fdc10bafc74bced9737da71e697375b28fa3d814e5deef",
-    "guardSha256": "ab8d02c4f26aec51270173347a9401799b5219b9440fcf95aa47a215a603aa6e"
+    "sha256": "77c7e1e7cd49e11f8469b5798f727dc137ba3bc7aced1e5427b89b9424601adf",
+    "guardSha256": "c12103a5da4727528070c3815d9de836fbab764ca47f25e128e4e07d300a74f4"
   },
   "constraints": [
     "Module rule matches only /api/v2/weather/.",
-    "Runtime requires explicit country=CN, explicit airQuality dataSet, WK2.Weather FlatBuffer response, and valid coordinates/root table.",
+    "Runtime requires a 2xx response, explicit country=CN, explicit airQuality dataSet, WK2.Weather FlatBuffer response, and valid coordinates/root table.",
     "Existing AQ roots are preserved byte-for-byte and are not sent to a provider.",
     "Missing AQ root is encoded only through the pinned NSRingo WeatherKit2 codec.",
     "Output must contain fresh, in-range EPA_NowCast.2604 AQI with matching category and provider coordinates within 10 km; otherwise original bytes are restored."
