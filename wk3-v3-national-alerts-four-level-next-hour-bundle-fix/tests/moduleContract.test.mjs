@@ -19,7 +19,7 @@ test("module pins scripts to the same immutable asset revision and recorded hash
 const paths = [...moduleText.matchAll(/script-path=(https:\/\/raw\.githubusercontent\.com\/Carson614\/WeatherKit-WK3-Test\/([A-Za-z0-9_]{10,40})\/wk3-v3-national-alerts-four-level-next-hour-bundle-fix\/(request|response)\.dev\.bundle\.js)/g)];
     assert.equal(paths.length, 3);
     assert.ok(paths.every(path => path[2] === report.scriptPathsAssetCommit));
-    assert.match(report.scriptPathsAssetCommit, /^(?:ASSET_COMMIT|[a-f0-9]{40})$/);
+    assert.match(report.scriptPathsAssetCommit, /^[a-f0-9]{40}$/);
     assert.deepEqual(paths.map(path => path[3]).sort(), ["request", "request", "response"]);
     assert.equal(requestHash, report.requestBundleSha256);
     assert.equal(responseHash, report.responseBundleSha256);
