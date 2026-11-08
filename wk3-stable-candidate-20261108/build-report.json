@@ -200,7 +200,8 @@
     "raw1DefaultDisabled": true,
     "snowDeviceAcceptanceBaselineCommit": "3558f8e4f28db4d996aa3221f65f262d34e0b5c8",
     "stableCandidateRealDeviceAcceptance": false,
-    "stableCandidateStatus": "pending one iPhone regression; historical acceptance applies to the pinned Snow Arrays Diagnostic module"
+    "stableCandidateStatus": "pending one iPhone regression; historical acceptance applies to the pinned Snow Arrays Diagnostic module",
+    "moduleGitCommitPinned": true
   },
   "realDeviceAcceptance": {
     "status": "passed_for_tangshan_three_alert_collection_only",
@@ -371,5 +372,8 @@
     "minuteSourceAccuracyChecked": false,
     "snowfallAmountAccuracyChecked": false,
     "appliesToStableCandidate": false
-  }
+  },
+  "moduleGitCommit": "8566813ff013e554a94b4408c2effa5f4cf98152",
+  "moduleUrl": "https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/8566813ff013e554a94b4408c2effa5f4cf98152/wk3-stable-candidate-20261108/WK3-WeatherKit-Stable-Candidate.sgmodule",
+  "releaseBranch": "wk3-stable-candidate-20261108"
 }
