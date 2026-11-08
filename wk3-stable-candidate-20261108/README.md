@@ -1,6 +1,6 @@
 # WK3 WeatherKit Stable Candidate
 
-This is an isolated daily-use **candidate**, not yet accepted as the active iPhone module. It carries forward the iPhone-accepted Snow Arrays Diagnostic bundle without rebuilding or reassembling its weather logic. The candidate changes module metadata and defaults the experimental red `raw1` alert mapping to **off**. The active Surge configuration and every older module remain untouched.
+This isolated WK3 version has passed the candidate-level iPhone regression and is accepted for daily-use maintenance as of **2026-11-08**. It carries forward the iPhone-accepted Snow Arrays Diagnostic bundle without rebuilding or reassembling its weather logic. The candidate changes module metadata and defaults the experimental red `raw1` alert mapping to **off**. This documentation update does not change the active Surge configuration or any older module.
 
 ## Version provenance
 
@@ -18,14 +18,14 @@ The published candidate module SHA and file hashes are recorded in [`BUILD-TEST-
 
 | Area | Candidate behavior | Evidence status |
 | --- | --- | --- |
-| Air quality | US EPA NowCast, mainland CN index conversion, and same-source yesterday comparison | Previously passed on iPhone; final bundle regression included |
-| Minute rain | ColorfulClouds minute rain, stop/resume periods, and timeline validation | Previously passed on iPhone; final bundle regression included |
+| Air quality | US EPA NowCast, mainland CN index conversion, and same-source yesterday comparison | iPhone accepted; Zhangjiagang Stable Candidate regression passed |
+| Minute rain | ColorfulClouds minute rain, stop/resume periods, and timeline validation | Historical iPhone success; no-rain intervals may correctly omit the minute card |
 | Minute snow | Distinct WK3 `SNOW` summary and minute intensity curve; no snow-to-rain mapping | Gaizhou iPhone acceptance on the exact inherited script assets |
 | Sleet | Keeps the existing `SLEET` experiment and strict phase checks | Automated tests only; no iPhone acceptance |
 | Alerts | National 14-type registry, strict region/type/severity/time/lifecycle/identity checks, and all-events-before-shared-link rewrite | Fangshan, Turpan, and Tangshan behavior previously passed on iPhone |
 | Alert severity | Blue `raw4` and yellow `raw3` retained; orange `raw2` remains experimental; red `raw1` remains experimental and defaults off | Orange has Tangshan device evidence but is not an Apple protocol definition; red has no paired device evidence |
 
-All historical device results belong to the listed source experiment versions. This exact Stable Candidate module configuration is still **pending one short iPhone regression**. `raw2=Severe` and `raw1=Extreme` are inferred alert mappings, not confirmed Apple WK3 definitions. No Gaizhou-area red warning establishes `raw1=Extreme`; no Liaoning-specific alert mapping is included.
+Historical device results remain tied to their listed source experiments. The exact Stable Candidate has now passed its Zhangjiagang iPhone regression and is accepted for daily use. A Zhangjiagang observation with current rain but no minute-rain card was checked against ColorfulClouds data: the next 120 minutes had zero precipitation intensity and probability, so the omitted card was expected. `raw2=Severe` and `raw1=Extreme` remain inferred alert mappings, not confirmed Apple WK3 definitions. No Gaizhou-area red warning establishes `raw1=Extreme`; no Liaoning-specific alert mapping is included.
 
 ## Surge parameters
 

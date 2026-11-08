@@ -7,7 +7,8 @@
 - Final replay verified `Uint8Array` response bodies, a newly inserted AQ product, `EPA_NowCast.2604`, index/category consistency, source time/coordinates, same-source yesterday comparison, and preservation of existing/current/unknown root products.
 - Rejections for non-2xx responses, invalid location/time/index, source failure, non-CN, missing airQuality data set, non-WK2 content type and invalid FlatBuffer return the original response body bytes.
 - Existing AQ product path returns byte-identical input and makes no provider request. Diagnostics do not print sensitive request details.
-- Apple Watch interface has **not** been retested; installation and visual verification remain with the user.
+- **Real-device acceptance:** Apple Watch Ultra 1, watchOS 26.6, Zhangjiagang; user confirmed the AQI card displayed. Surge reported `WK2AQI/1;original=missing;source=ok;result=injected`.
+- Scope: this confirms AQI insertion and Apple Watch display for this real request; it does not establish all-city or all-time source accuracy.
 
 ## Build provenance
 

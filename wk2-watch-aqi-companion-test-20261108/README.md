@@ -1,4 +1,4 @@
-# WK2 Watch AQI Companion Test
+# WK2 Watch AQI Companion Test — 真机验收通过
 
 独立 WK2 实验模块，用于 Apple Watch 请求没有 `airQuality` 根产品时尝试安全补入彩云美国 AQI。它只匹配 `weatherkit.apple.com/api/v2/weather/`；运行时还要求 GET、成功的 HTTP 状态、`country=CN`、请求数据集明确包含 `airQuality`、WK2.Weather FlatBuffer 正常且路径坐标有效。
 
@@ -17,7 +17,11 @@
 
 从本仓库固定提交打开 `WK2-Watch-AQI-Companion-Test.sgmodule`，在 Surge 中添加为独立测试模块。它只处理显式 `country=CN` 的 WK2 天气请求；与现有 WK3 Stable Candidate 共存时，路径互不重叠。不要同时启用另一条会处理相同 `/api/v2/weather/` 的 WK2 AQI 响应脚本。
 
-安装后在 Surge 最近请求中检查来自 Watch 的 `/api/v2/weather/` 详情：请求需含 `country=CN` 和 `dataSets` 中的 `airQuality`；响应 `X-WK2-Watch-AQI-Diag` 应显示注入状态。然后在 Apple Watch 张家港天气页确认 AQI 卡片。自动回放不能代替 Watch 真机验收。
+已固定版本：模块提交 `d369e55204eaef308f2f02c1ee6962aaedcf49e1`，脚本资产提交 `6910ce83b0ac92db40d2050744119900533fd0cc`。在 Surge 最近请求中，来自 Watch 的 `/api/v2/weather/` 详情应包含 `country=CN` 和 `dataSets` 中的 `airQuality`。
+
+## 真机验收
+
+2026-11-08，Apple Watch Ultra 1（watchOS 26.6）在张家港通过真机验收。真实 Watch 请求为 `WK2.Weather`，包含 `country=CN` 与 `airQuality`；响应诊断为 `WK2AQI/1;original=missing;source=ok;result=injected`，Apple Watch 空气质量成功显示。完整记录见 [`ACCEPTANCE_HISTORY.md`](./ACCEPTANCE_HISTORY.md)。自动回放与真机验收记录分别保留。
 
 ## 构建与来源
 
@@ -31,4 +35,4 @@
 
 运行 `npm ci && npm run check`。测试执行最终发布 bundle，而非仅检查源守卫；覆盖缺失 AQ 根产品、vtable 偏移为零、现有 AQ 原样保留、同源昨日比较、无昨日数据、数据源失败、过期/异地/越界 AQI、非 CN、无 `airQuality` 数据集、错误响应类型、无效 FlatBuffer，以及原始已知/未知根产品保留。所有回放样本与坐标均为合成数据，不包含真实请求正文或凭证。当前通过结果和 SHA 见 [`BUILD-TEST-REPORT.md`](./BUILD-TEST-REPORT.md)。
 
-自动化仅证明合成 WK2 回放和脚本结构。尚未证明 Apple Watch UI 会显示新卡片；需要在 Watch 手动安装后验证。
+自动化证明合成 WK2 回放和脚本结构；上述 Watch 卡片显示另有真实设备证据。此验收不代表所有城市、来源时段或 Apple Watch 请求都已验证。

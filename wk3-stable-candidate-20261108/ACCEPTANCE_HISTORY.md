@@ -21,3 +21,13 @@ Append-only record of real-device acceptance for this independent experiment. Th
 - **Accepted module commit:** `3558f8e4f28db4d996aa3221f65f262d34e0b5c8`.
 - **Pinned script asset commit:** `db1831ce06b0656e8ec4dfab3d4387abbee548f5`.
 - **Scope limit:** Confirms injection, snow identification, and native chart rendering only. Per-minute source agreement and forecast accuracy were not checked. The nearby red highway weather alert is not evidence for `raw1 → Extreme`; no local alert mapping was added.
+
+## 2026-11-08 — Zhangjiagang Stable Candidate regression
+
+- **Result:** Passed on iPhone in Zhangjiagang; the user confirmed the stable candidate did not regress the accepted US AQI behavior.
+- **Air quality:** US EPA AQI and yesterday comparison displayed normally.
+- **Minute precipitation:** A case with current rain but no minute card was checked against ColorfulClouds source data. The next 120 minutes had zero precipitation intensity and zero probability, so no minute card was the expected result.
+- **Other accepted behavior:** Historical minute-rain, Gaizhou native minute-snow chart, and alert-detail/fail-closed cases remain the evidence basis recorded above; this regression did not claim to repeat every historical scenario.
+- **Module commit:** `8566813ff013e554a94b4408c2effa5f4cf98152`.
+- **Script asset commit:** `db1831ce06b0656e8ec4dfab3d4387abbee548f5`.
+- **Status:** Stable Candidate accepted for daily use. No Surge configuration change is recorded by this documentation update.
