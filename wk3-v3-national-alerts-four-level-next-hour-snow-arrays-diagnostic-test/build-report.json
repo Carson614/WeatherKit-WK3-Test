@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 3,
+  "builtAt": "2026-11-08",
+  "repository": "Carson614/WeatherKit-WK3-Test",
+  "branch": "wk3-snow-arrays-diagnostic-20261108",
+  "baseCandidateCommit": "5b936f22a499a78454a686a928057a23e56d72da",
+  "baseExperimentModuleCommit": "c2b7299ce8c2e98dcd9b25432ad411b9cc5d110e",
+  "trueDeviceBaselineCommit": "34475524c06ca7d5c6d17da18612548cd8b0b2e6",
+  "upstreamReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "tag": "v3.3.6",
+    "commit": "9fc8d85afaf595f338db032090a77283a5c63db3",
+    "license": "Apache-2.0"
+  },
+  "buildType": "fixed-anchor augmentation of the pinned accepted response bundle plus current WK3 codec/adapter and a verified narrow snow-condition filter handoff; not a complete Rollup build",
+  "baseResponseSha256": "3306e2fa3898e302333cb695fd51f21578cef47c29b1af73f220f8c168bbf7a8",
+  "baseRequestSha256": "be8032a6764793e8daf1af5c2e3bef8581c0f017b879cf926f7f941495f3b83d",
+  "requestBundleSha256": "d493c347d104c8d58829df07c2c5580d421fbf6b132b54f99cfda4c9bbb2fcde",
+  "responseBundleSha256": "d1e0341a73f6820a66591f2cdbff2b38e64d7b7015a27156aaf4b1eeb02b2fa3",
+  "requestBundleBytes": 618255,
+  "responseBundleBytes": 818454,
+  "scriptPathsAssetCommit": "db1831ce06b0656e8ec4dfab3d4387abbee548f5",
+  "assetCommit": "db1831ce06b0656e8ec4dfab3d4387abbee548f5",
+  "moduleFile": "WK3-National-Alerts-Four-Level-Next-Hour-Snow-Arrays-Diagnostic-Test.sgmodule",
+  "moduleSha256": "46bbeb4404957f76ddd4cdd83f6c78e2a3960454b944bd4f24d42f0d4de72cd0",
+  "registry": {
+    "version": "2026-11-08.1",
+    "nationalBase": "CMA Order 16, 14 categories",
+    "nationalLevelSource": "CMA Order 16 national signal appendix; applicable colors differ by hazard",
+    "capColorCrosswalkSource": "QX/T 408-2017 Table 6",
+    "qweatherEventSource": "https://dev.qweather.com/docs/api/warning/alert-events/",
+    "qweatherApiSchema": "https://dev.qweather.com/docs/api/warning/weather-alert/",
+    "qweatherLifecycle": "https://dev.qweather.com/docs/api/warning/alert-changes/",
+    "qweatherStructuredApiIntegrated": false,
+    "apiAuthAssumed": false,
+    "htmlFallbackPreserved": true,
+    "exactAliases": [
+      "分区暴雪 -> 暴雪"
+    ],
+    "broadNamesMapped": false,
+    "typeSpecificLevelApplicability": true,
+    "capSevereAndExtremeToAppleRawMapping": false
+  },
+  "severityEvidence": {
+    "capByGovernmentColor": {
+      "blue": "minor",
+      "yellow": "moderate",
+      "orange": "severe",
+      "red": "extreme"
+    },
+    "observedWK3RawValues": {
+      "3": "moderate",
+      "4": "minor"
+    },
+    "enabledHTMLColors": [
+      "blue",
+      "yellow",
+      "orange",
+      "red"
+    ],
+    "failClosedColors": [],
+    "raw2": "experimental_inferred=severe for national orange only; not an Apple protocol definition",
+    "realEvidence": [
+      "Upstream WK3 v3.3.6 source labels raw3=MODERATE and raw4=MINOR; no WK3 raw2 mapping was found",
+      "Fangshan snowstorm and road-icing yellow match was real-device verified",
+      "Zhangjiagang cold-wave yellow match was real-device logged",
+      "Turpan blue gale real-device match: raw4, type/region/time/unique checks passed",
+      "Tangshan Lubei real-device pairing: Apple snowstorm raw2 and QWeather snowstorm orange matched region/type/exact issue time with one identity candidate; Apple JSON severity was not captured"
+    ],
+    "officialEvidence": [
+      "QX/T 408-2017 Table 6: blue Minor; yellow Moderate; orange Severe; red Extreme",
+      "CMA Order 16 defines the 14 national categories and type-specific government colors",
+      "QWeather API docs keep severity and color as separate fields; example gives blue gale severity minor"
+    ],
+    "syntheticOnly": [
+      "Generic all-14-type applicable blue/raw4 and yellow/raw3 regression matrix",
+      "All orange/red Apple WK3 raw enum cases and inconsistent API/color evidence"
+    ],
+    "standardAppendixConflict": "QX/T 408-2017 Appendix A example appears inconsistent with Table 6 for yellow; implementation follows normative Table 6 and records this discrepancy",
+    "limitations": "raw2=Severe remains experimental despite the Tangshan strict real-device event and native-detail success; raw1=Extreme is user-authorized and synthetic-only; neither is an Apple schema/source definition",
+    "orangeEvidence": "This candidate enables experimental inferred raw2=Severe for strict national orange matches; Tangshan three-alert details passed iPhone acceptance, but this is not a protocol confirmation or nationwide acceptance",
+    "experimentalMapping": true,
+    "experimentalSource": "Tangshan Lubei real-device strict pairing: Apple snowstorm raw2 and QWeather orange had same region/type/issue time with one identity candidate; Apple JSON severity was not captured",
+    "capSevereAndExtremeToAppleRawMapping": "orange raw2 and red raw1 are experimental inferred mappings; only blue raw4 and yellow raw3 are verified WK3 severity evidence",
+    "raw1": "experimental_inferred=extreme for applicable national red only; enabled by default in this isolated module with independent WeatherAlerts.ExperimentalRaw1=false switch; not an Apple protocol definition; no real-device pair",
+    "raw1Evidence": "User explicitly authorized raw1=Extreme as a separate experiment; no Apple schema/source definition or red real-device pair",
+    "raw1Switch": "WeatherAlerts.ExperimentalRaw1; default true only in this isolated module; false disables raw1/red without disabling raw2/orange"
+  },
+  "updateHandling": {
+    "previousCause": "Any update/changed lifecycle was rejected before exact issue-time and candidate checks, producing source_updated",
+    "acceptedLifecycle": "Current QWeather page update may match only with exact Apple issuedTime, strict region/type/severity, and one unique candidate",
+    "staleAppleRule": "A newer same-type update rejects older Apple data as source_update_newer_candidate",
+    "mismatchRule": "Nonmatching update issue time returns source_update_version_mismatch",
+    "cancelRule": "cancel/解除 and unknown lifecycle are never candidates",
+    "htmlIdentityLimit": "Public page parsing has no structured QWeather alert id/supersedes chain; exact issue time plus current page and strict predicates is the available binding evidence, not an API-level identity proof",
+    "collectionRewriteRule": "All Apple events must uniquely match; any one failure returns the complete original collection and links; no per-event partial rewriting."
+  },
+  "sampleCollection": {
+    "ledger": "metadata-only public sample normalizer/deduplicator; records source, capture time, region, type, color, lifecycle, issue time and evidence grade",
+    "livePublicCrawlCompleted": false,
+    "publicPageAccess": "QWeather public page returned HTTP 403 in this environment",
+    "officialApiAccess": "QWeather official alert API requires configured authentication; no token was requested or stored",
+    "fixture": "official API documentation update example, explicitly marked documentation-only and not Apple-WK3 paired",
+    "evidencePolicy": "Public-page/API samples never count as Apple WK3 real-device severity pairs"
+  },
+  "diagnostics": {
+    "header": "X-WK3-Alerts-Diag",
+    "eventFields": "raw and normalized Apple/QWeather types, bounded QWeather page area name, type IDs, issue time, candidate predicates; raw2 JSON counterpart explicitly not captured; no event IDs, URL, coordinates, region identifier, token or response body",
+    "sensitiveFields": false
+  },
+  "validation": {
+    "automatedTests": {
+      "passed": 111,
+      "failed": 0,
+      "status": "passed"
+    },
+    "bundleSyntax": "node --check passed for request and response bundles",
+    "aqScaleIndexCategoryYesterdayRegression": true,
+    "minuteRainRegression": true,
+    "wk3UnknownRootFields": true,
+    "fangshanDualAlertRegression": true,
+    "turpanBlueGaleRegression": true,
+    "updateCurrentExactVersion": true,
+    "updateSupersededStaleRejected": true,
+    "updateLifecycleEvidenceLimit": "HTML omits structured message id and supersedes chain",
+    "nationalColorApplicabilityCoverage": true,
+    "sourceFailureFallback": true,
+    "iPhoneAlertAcceptance": true,
+    "tangshanThreeAlertRealDeviceDetails": true,
+    "nationalOrangeGeneralizationRealDeviceAcceptance": false,
+    "latestTangshanNextHourDeviceResult": "provider_data_rejected_summary_enum; exact rejected symbol unknown. This change adds strict supported liquid subtype conversion and safe WK3NH/4 diagnosis; new-module iPhone validation is pending.",
+    "currentSurgeConfigChanged": false,
+    "fullRollupSourceBuild": false,
+    "fullBuildNote": "Not completed as a full Rollup build: private @nsringo/weatherkit GitHub Packages previously returned 401. This artifact uses fixed-anchor augmentation, not a complete source build.",
+    "testCommand": "npm test",
+    "raw2RemainsFailClosed": true,
+    "raw2OriginalBytesAndEventIdentityPreserved": true,
+    "raw2TypeTimeAndCandidateDiagnostics": true,
+    "allOrNothingSharedRoute": true,
+    "tangshanThreeAlertSyntheticReplay": true,
+    "testCount": 111,
+    "testsPassed": 111,
+    "testFailures": 0,
+    "generatedBundleSyntaxCheck": true,
+    "nationalRedRaw1RealDeviceAcceptance": false,
+    "newModuleRealDeviceAcceptance": false,
+    "newModuleMinuteRainDeviceAcceptance": false,
+    "raw1DefaultEnabledIndependentDisableSwitch": true,
+    "raw2RemainsExperimentalInferred": true,
+    "raw1RemainsExperimentalInferred": true,
+    "raw1OriginalBytesAndEventIdentityPreserved": true,
+    "nextHourSummarySubtypeConversion": "synthetic only; no captured Tangshan bin; pending iPhone confirmation",
+    "buildChainEmbedsCurrentNextHourSources": true,
+    "finalBundleSourceFingerprintTest": true,
+    "finalBundleLiquidSubtypeEncodeDecode": true,
+    "finalBundleSummaryRejectionDiagnosticAndByteFallback": true,
+    "finalBundleDiagnosticHeader": "WK3NH/5;result,stage,symbol,phase,wet,prob,arrays state,counts,classification,dry,interval,time,pattern",
+    "snowDeviceAcceptance": false,
+    "snowPanelAppearanceDeviceAcceptance": false,
+    "snowSourceCodecRoundTrip": true,
+    "snowFinalBundleCodecRoundTrip": true,
+    "snowFinalBundleBytePreservingFallback": true,
+    "snowFinalBundleAQIOpaqueRootRegression": true,
+    "snowSupportedConditionMatrix": [
+      "SNOW",
+      "HEAVY_SNOW",
+      "SLEET",
+      "POSSIBLE_SLEET"
+    ],
+    "snowOmittedConditionMatrix": [
+      "FLURRIES",
+      "POSSIBLE_FLURRIES"
+    ],
+    "snowRejectedMatrix": [
+      "dry snow label",
+      "phase mismatch",
+      "HAIL",
+      "MIXED",
+      "unknown symbol",
+      "missing probability",
+      "missing intensity",
+      "broken minute timeline",
+      "misaligned summary"
+    ],
+    "newModuleSnowDeviceAcceptance": false,
+    "newModuleSnowPanelDeviceAcceptance": false,
+    "snowRunStatus": "passed: 111/111 local tests after fixed-anchor final response bundle rebuild; new array diagnostics and narrow flurry handoff not yet iPhone validated.",
+    "finalBundleTests": "Automated tests execute the generated response bundle: mocked Caiyun FLURRIES snow injects validated SNOW summary and minutes; unknown hail falls back; missing/invalid/empty array states get sanitized WK3NH/5 classifications; dry is only a complete CLEAR timeline. AQI, alert route, rain/snow existing fixtures and unknown root fields regressions pass.",
+    "finalBundleSnowSleetEncodeDecode": true,
+    "finalBundleFlurriesVectorOmission": true,
+    "finalBundleConditionPhaseFallback": true,
+    "finalBundleArrayStateDiagnostics": true,
+    "finalBundleArrayDiagnosticNoSensitiveValues": true,
+    "finalBundleFlurryGeneratorHandoff": true,
+    "finalBundleMockedCaiyunSnowMinuteInjection": true,
+    "finalBundleUnsupportedHailBytePreservingNextHourFallback": true,
+    "normalDryRequiresCompleteClearArrays": true,
+    "providerEmptyArraysNotMisclassifiedAsDry": true,
+    "currentTangshanArraysFailureCause": "not yet confirmed; the prior WK3NH/4 result had no per-array states. The new module will separate provider empty data from filtered snow-condition output."
+  },
+  "realDeviceAcceptance": {
+    "status": "passed_for_tangshan_three_alert_collection_only",
+    "device": "iOS 27.3 + Surge 6.100.0",
+    "responseSummary": "events=3;src=3;parse=3,0,0,0;link=native_api;e0=matched_update_experimental_inferred:raw2:gorange;e1=matched:raw4:gblue;e2=matched_update_current:raw4:gblue;result=rewritten",
+    "visualDetails": [
+      {
+        "event": "暴雪橙色预警",
+        "displayedSeverity": "严重",
+        "issuedLocal": "2026-11-07 16:12 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      },
+      {
+        "event": "寒潮蓝色预警",
+        "displayedSeverity": "轻微",
+        "issuedLocal": "2026-11-06 16:40 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      },
+      {
+        "event": "大风蓝色预警",
+        "displayedSeverity": "轻微",
+        "issuedLocal": "2026-11-07 16:15 GMT+8",
+        "source": "河北省气象台",
+        "userConfirmedCorrect": true
+      }
+    ],
+    "evidenceSource": "User-provided Surge response headers and iPhone screenshots; event identifiers, coordinates and request locators omitted",
+    "scopeLimit": "This is inherited real-device acceptance for the previous module only: confirms the three Tangshan alerts and collection-level native detail route; does not confirm raw2 semantics for all WK3 events or all national orange hazard types, raw1/red semantics, nationwide orange matching, or the new module minute-summary conversion."
+  },
+  "license": "Apache-2.0; upstream attribution retained",
+  "installFile": "WK3-National-Alerts-Four-Level-Next-Hour-Snow-Arrays-Diagnostic-Test.sgmodule",
+  "nextHour": {
+    "wk3VerifiedPrecipitationEnums": {
+      "CLEAR": 1,
+      "RAIN": 2
+    },
+    "rootCause": "The observed provider_data_rejected_arrays header does not reveal which normalized array was empty. The source generator maps precipitation_2h to minutes, derives summary, then derives conditions. A valid dry sample is a complete zero/CLEAR timeline; an empty sequence is not evidence of dry weather. A confirmed generation path filtered FLURRIES/POSSIBLE_FLURRIES against a separate enum table before the strict WK3 converter, potentially leaving a valid snow summary/minutes with condition=[]; this experiment narrowly hands only those two symbolic snow conditions to the existing strict adapter. The exact cause of the reported Tangshan request remains unconfirmed until WK3NH/5 array states are read on-device.",
+    "conversion": "SNOW and SLEET summaries map only to their upstream-declared WK3 precipitation enums with strictly aligned positive minute evidence. SNOW/HEAVY_SNOW and SLEET/POSSIBLE_SLEET conditions are phase-bound to matching validated summaries. FLURRIES/POSSIBLE_FLURRIES have no guessed enum; only their whole descriptive vector may be omitted when a validated SNOW summary and minute evidence exist. Hail, mixed phase, unknown symbols, contradictions, incomplete values or bad timing fail open.",
+    "diagnosticHeader": "X-WK3-NextHour-Diag WK3NH/5; arrays=summary/condition/minutes states (missing, invalid, empty, nonempty); bounded counts and safe classification; excludes coordinates, tokens, raw values and response body.",
+    "actualTangshanRejectedSymbol": "unknown; no source response bin was available; next device run can reveal only allowlisted safe symbol names or unknown",
+    "realDeviceEvidence": "Prior user-reported snow-shaped response had symbol=snow and arrays=1/1/85/time=ok, but this does not identify the later rejected request or prove Apple Weather snow-panel rendering. Array fix and WK3NH/5 diagnostics await a separate iPhone install/check.",
+    "syntheticCoverage": [
+      "dry",
+      "continuous rain",
+      "drizzle",
+      "heavy rain",
+      "possible drizzle with measured wet interval",
+      "rain start/stop",
+      "rain-dry-rain",
+      "unknown/non-liquid symbol",
+      "missing probability/intensity",
+      "invalid or misaligned timeline",
+      "SNOW summary with SNOW and HEAVY_SNOW condition enums",
+      "SLEET summary with SLEET and POSSIBLE_SLEET conditions",
+      "FLURRIES/POSSIBLE_FLURRIES descriptive-vector omission with retained SNOW summary and minutes",
+      "snow/sleet phase mismatch and dry label rejection",
+      "snow minute intensity/probability/timestamp continuity",
+      "final response bundle snow/sleet injection plus independent EPA AQI and opaque root field preservation",
+      "final generated response bundle exercises normalized FLURRIES from mocked Caiyun Minutely and injects validated SNOW summary plus measured 85-minute vector while omitting the unnumbered condition vector",
+      "empty, invalid, and missing summary/condition/minutes array states and safe failure classifications",
+      "normal dry requires a complete zero/CLEAR timeline and is not inferred from an empty array",
+      "unsupported hail condition remains filtered and provider response falls back without fabricating a vector"
+    ],
+    "failureIsolation": "Next-hour conversion rejection preserves Apple nextHour bytes and does not cancel AQI/weather-alert changes",
+    "upstreamDeclaredSnowEnums": {
+      "precipitation.SNOW": 3,
+      "precipitation.SLEET": 4,
+      "condition.SNOW": 11,
+      "condition.HEAVY_SNOW": 10,
+      "condition.SLEET": 4,
+      "condition.POSSIBLE_SLEET": 5
+    },
+    "snowExperiment": {
+      "wk3EnumsSourceCommit": "f5320b320018baabc1b0563d9b93e0535fe92443",
+      "upstreamProviderRecognizes": [
+        "小雪=FLURRIES",
+        "下雪/中雪=SNOW",
+        "大雪=HEAVY_SNOW",
+        "雨夹雪=SLEET"
+      ],
+      "supportedSummary": [
+        "SNOW",
+        "SLEET"
+      ],
+      "supportedCondition": [
+        "SNOW",
+        "HEAVY_SNOW",
+        "SLEET",
+        "POSSIBLE_SLEET"
+      ],
+      "unnumberedCondition": [
+        "FLURRIES",
+        "POSSIBLE_FLURRIES"
+      ],
+      "unnumberedHandling": "omit the complete descriptive condition vector only if the corresponding SNOW summary and exact interval minute data validate; retain summaries and all minute vectors",
+      "frozenGate": "strict phase, exact aligned interval, at least one measured positive minute intensity with nonzero minute probability, and valid summary/minute arrays and timestamps",
+      "unknownPhasePolicy": "HAIL, MIXED, unknown symbols, contradictions, malformed values and unsupported structures retain Apple original next-hour data",
+      "deviceEvidence": "upstream WK3 declarations/tests only; iPhone display not yet verified"
+    },
+    "arrayDiagnostics": {
+      "order": "summary/condition/minutes",
+      "states": [
+        "missing",
+        "invalid",
+        "empty",
+        "nonempty"
+      ],
+      "classification": [
+        "normal_dry",
+        "provider_data_missing",
+        "provider_invalid_shape",
+        "generator_summary_missing",
+        "generator_snow_condition_filtered",
+        "generator_condition_missing",
+        "generator_output_incomplete"
+      ],
+      "header": "WK3NH/5",
+      "sensitiveValuesLogged": false,
+      "emptyArraysAreDry": false,
+      "flurryFix": "Allow only FLURRIES and POSSIBLE_FLURRIES to reach the strict converter; no numeric alias is added; the complete condition vector remains omitted only after validated SNOW summary and measured aligned minute evidence."
+    }
+  },
+  "nextHourSourceEmbedded": true,
+  "nextHourSourceSha256": "5536a2f59e1174d3882dbe86efca513bb74473e2e69929ef9f1599c9c2dc906a",
+  "nextHourCodecSourceSha256": "b28258f47d5b4ce845ad63a7bbf383eef7bdb5745cc92d1e7d2317e191befbed",
+  "nextHourAdapterSourceSha256": "ee273c9e3549282a77cd25da79242fca24a5ece4dafbad37676345b31db4ecfb",
+  "nextHourBuildType": "fixed-anchor response baseline with current WK3NextHour.mjs and wk3NextHourFlatBuffer.mjs embedded directly",
+  "testCount": 98,
+  "testsPassed": 98,
+  "testFailures": 0,
+  "upstreamSnowReference": {
+    "repository": "patrickyanxxxxx/WeatherKit-WK3",
+    "commit": "f5320b320018baabc1b0563d9b93e0535fe92443",
+    "license": "Apache-2.0",
+    "files": [
+      "src/wk3/class/WK3NextHour.mjs",
+      "src/wk3/class/ForecastNextHour.mjs",
+      "tests/wk3/wk3-next-hour.test.mjs",
+      "tests/wk3/wk3-minutely-provider.test.mjs"
+    ]
+  },
+  "changelog": [
+    {
+      "version": "wk3-snow-minute-experiment-2026.11.08-r1",
+      "summary": "Added source-verified SNOW/SLEET WK3 conversion, cautious omission of unnumbered FLURRIES condition vectors, and final response bundle snow/fallback regression coverage. Existing accepted alert/AQI/rain behavior remains unchanged."
+    }
+  ],
+  "moduleVersion": "wk3-snow-arrays-diagnostic-2026.11.08-r2"
+}
