@@ -1,0 +1,16 @@
+{
+  "source": "https://dev.qweather.com/docs/api/warning/weather-alert/",
+  "evidenceGrade": "official-documentation-example; not a live capture and not Apple-WK3 paired",
+  "alert": {
+    "id": "202510241119105837988676",
+    "issuedTime": "2025-10-24T11:19+08:00",
+    "messageType": {
+      "code": "update",
+      "supersedes": ["202510181140100706230391"]
+    },
+    "eventType": { "name": "大风", "code": "1006" },
+    "severity": "minor",
+    "color": { "code": "blue" },
+    "headline": "临桂区气象台更新大风蓝色预警信号"
+  }
+}
