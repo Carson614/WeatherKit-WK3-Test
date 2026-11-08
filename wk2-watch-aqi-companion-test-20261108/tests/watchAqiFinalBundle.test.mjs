@@ -7,7 +7,7 @@ import { Builder } from "flatbuffers";
 const directory = new URL("../", import.meta.url);
 const bundle = readFileSync(new URL("../response.bundle.js", import.meta.url), "utf8");
 const moduleText = readFileSync(new URL("../WK2-Watch-AQI-Companion-Test.sgmodule", import.meta.url), "utf8");
-const requestURL = "https://weatherkit.apple.com/api/v2/weather/zh-Hans-US/31.877/120.556?country=CN&timezone=Asia%2FShanghai&dataSets=airQuality,currentWeather";
+const requestURL = "https://weatherkit.apple.com/api/v2/weather/zh-Hans-US/12.345/67.89?country=CN&timezone=Asia%2FShanghai&dataSets=airQuality,currentWeather";
 const now = Math.trunc(Date.now() / 1000);
 
 function createOpaqueTable(value = 777) {
@@ -20,8 +20,8 @@ function createOpaqueTable(value = 777) {
 function createAqiTable(builder) {
     builder.startObject(10);
     builder.addFieldInt32(1, now + 1800, 0);
-    builder.addFieldFloat32(3, 31.877, 0);
-    builder.addFieldFloat32(4, 120.556, 0);
+    builder.addFieldFloat32(3, 12.345, 0);
+    builder.addFieldFloat32(4, 67.89, 0);
     builder.addFieldInt32(7, now, 0);
     builder.addFieldInt32(8, now, 0);
     const metadata = builder.endObject();
@@ -150,7 +150,7 @@ function decodeOutput(bytes) {
     };
 }
 
-function realtimeResponse({ index = 67, latitude = 31.877, longitude = 120.556, reportedTime = now, status = "ok" } = {}) {
+function realtimeResponse({ index = 67, latitude = 12.345, longitude = 67.89, reportedTime = now, status = "ok" } = {}) {
     return {
         status: "ok",
         location: [latitude, longitude],
@@ -177,7 +177,7 @@ function realtimeResponse({ index = 67, latitude = 31.877, longitude = 120.556, 
 function hourlyResponse() {
     return {
         status: "ok",
-        location: [31.877, 120.556],
+        location: [12.345, 67.89],
         result: {
             server_time: now,
             hourly: { status: "ok", air_quality: { aqi: [{ value: { usa: 45, chn: 46 } }] } },
@@ -260,8 +260,8 @@ test("final bundle adds AQ at missing WK2 root slot and preserves untouched/futu
     assert.equal(decoded.unavailable, false);
     assert.equal(decoded.currentWeatherMarker, 222, "known current-weather product survives root re-encoding");
     assert.equal(decoded.unknownRootMarker, 333, "future/unknown root product survives root re-encoding");
-    assert.equal(Math.abs(decoded.latitude - 31.877) < 0.001, true);
-    assert.equal(Math.abs(decoded.longitude - 120.556) < 0.001, true);
+    assert.equal(Math.abs(decoded.latitude - 12.345) < 0.001, true);
+    assert.equal(Math.abs(decoded.longitude - 67.89) < 0.001, true);
     assert.ok(decoded.reportedTime > now - 60);
     assert.notEqual(decoded.comparison, 0, "a valid same-source yesterday sample yields a non-UNKNOWN trend");
     assert.ok(Buffer.from(output).includes(Buffer.from(original)), "untouched and future root bytes remain embedded in the reassembled WK2 buffer");
@@ -306,7 +306,7 @@ test("final bundle fails closed for stale, distant, out-of-range or malformed pr
     const original = createWeatherRoot({ includeCurrent: true, includeFuture: true });
     for (const realtime of [
         realtimeResponse({ reportedTime: now - 7 * 3600 }),
-        realtimeResponse({ latitude: 40.0, longitude: 120.556 }),
+        realtimeResponse({ latitude: 40.0, longitude: 67.89 }),
         realtimeResponse({ index: 501 }),
     ]) {
         const { result } = await execute({ bytes: original, realtime });
@@ -350,6 +350,7 @@ test("published bundle contains the binary guard and pinned WK2 codec failure ga
     assert.match(bundle, /globalThis\.__wk2WatchAQI\.encodeFailed=true/);
     assert.doesNotMatch(bundle, /Date: 2026\/8\/29 16:12:56/, "upstream startup banners are removed from the final asset");
     assert.match(moduleText, /pattern=\^https\?:\\\/\\\/weatherkit\\\.apple\\\.com\\\/api\\\/v2\\\/weather\\\//);
+    assert.ok(moduleText.includes("/1a47df680773320f0885220b9388adaa7cbe7120/wk2-watch-aqi-companion-test-20261108/response.bundle.js"));
     assert.doesNotMatch(moduleText, /\/api\/v1\/|\/api\/v3\/|weatherAlerts|forecastNextHour|minute/);
     assert.doesNotMatch(moduleText, /[?&](?:token|authorization|cookie)=/i);
 });

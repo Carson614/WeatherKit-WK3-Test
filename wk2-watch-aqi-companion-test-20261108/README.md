@@ -29,6 +29,6 @@
 
 ## 自动验证
 
-运行 `npm ci && npm run check`。测试执行最终发布 bundle，而非仅检查源守卫；覆盖缺失 AQ 根产品、vtable 偏移为零、现有 AQ 原样保留、同源昨日比较、无昨日数据、数据源失败、过期/异地/越界 AQI、非 CN、无 `airQuality` 数据集、错误响应类型、无效 FlatBuffer，以及原始已知/未知根产品保留。当前通过结果和 SHA 见 [`BUILD-TEST-REPORT.md`](./BUILD-TEST-REPORT.md)。
+运行 `npm ci && npm run check`。测试执行最终发布 bundle，而非仅检查源守卫；覆盖缺失 AQ 根产品、vtable 偏移为零、现有 AQ 原样保留、同源昨日比较、无昨日数据、数据源失败、过期/异地/越界 AQI、非 CN、无 `airQuality` 数据集、错误响应类型、无效 FlatBuffer，以及原始已知/未知根产品保留。所有回放样本与坐标均为合成数据，不包含真实请求正文或凭证。当前通过结果和 SHA 见 [`BUILD-TEST-REPORT.md`](./BUILD-TEST-REPORT.md)。
 
 自动化仅证明合成 WK2 回放和脚本结构。尚未证明 Apple Watch UI 会显示新卡片；需要在 Watch 手动安装后验证。
