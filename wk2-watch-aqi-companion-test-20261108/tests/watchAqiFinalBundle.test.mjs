@@ -351,7 +351,7 @@ test("published bundle contains the binary guard and pinned WK2 codec failure ga
     assert.match(bundle, /globalThis\.__wk2WatchAQI\.encodeFailed=true/);
     assert.doesNotMatch(bundle, /Date: 2026\/8\/29 16:12:56/, "upstream startup banners are removed from the final asset");
     assert.match(moduleText, /pattern=\^https\?:\\\/\\\/weatherkit\\\.apple\\\.com\\\/api\\\/v2\\\/weather\\\//);
-    assert.ok(moduleText.includes("/1a47df680773320f0885220b9388adaa7cbe7120/wk2-watch-aqi-companion-test-20261108/response.bundle.js"));
+    assert.ok(moduleText.includes("/6910ce83b0ac92db40d2050744119900533fd0cc/wk2-watch-aqi-companion-test-20261108/response.bundle.js"));
     assert.doesNotMatch(moduleText, /\/api\/v1\/|\/api\/v3\/|weatherAlerts|forecastNextHour|minute/);
     assert.doesNotMatch(moduleText, /[?&](?:token|authorization|cookie)=/i);
 });
