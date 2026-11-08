@@ -7,7 +7,8 @@
 - Acceptance-history baseline: `f5413b73a7ab45c9ecd1b1716278a40de77ea21e`.
 - Fixed runtime script asset commit: `db1831ce06b0656e8ec4dfab3d4387abbee548f5`.
 - Candidate module version: `wk3-stable-candidate-2026.11.08-r1`.
-- Candidate module Git commit and immutable download URL will be entered after the release commit is created.
+- Candidate module Git commit: `8566813ff013e554a94b4408c2effa5f4cf98152`.
+- Immutable download URL: `https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/8566813ff013e554a94b4408c2effa5f4cf98152/wk3-stable-candidate-20261108/WK3-WeatherKit-Stable-Candidate.sgmodule`.
 - The only runtime configuration change is `WeatherAlerts.ExperimentalRaw1=false` by default. Request/response JS and feature logic are byte-identical to the accepted source assets.
 
 ## Hashes

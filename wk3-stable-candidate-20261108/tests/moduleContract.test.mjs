@@ -26,6 +26,8 @@ const paths = [...moduleText.matchAll(/script-path=(https:\/\/raw\.githubusercon
     assert.equal(moduleHash, report.moduleSha256);
     assert.equal(report.moduleFile, "WK3-WeatherKit-Stable-Candidate.sgmodule");
     assert.equal(report.moduleVersion, "wk3-stable-candidate-2026.11.08-r1");
+    assert.equal(report.moduleGitCommit, "8566813ff013e554a94b4408c2effa5f4cf98152");
+    assert.match(report.moduleUrl, /\/8566813ff013e554a94b4408c2effa5f4cf98152\/wk3-stable-candidate-20261108\/WK3-WeatherKit-Stable-Candidate\.sgmodule$/);
 });
 
 test("module keeps accepted AQI/minute rain settings and independent feature switches", () => {

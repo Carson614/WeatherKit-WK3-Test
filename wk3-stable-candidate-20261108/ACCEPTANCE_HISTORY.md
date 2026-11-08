@@ -7,6 +7,8 @@ Append-only record of real-device acceptance for this independent experiment. Th
 - **Status:** Waiting for the single candidate-level iPhone regression; historical acceptance below is inherited from the exact pinned script assets.
 - **Source module:** `3558f8e4f28db4d996aa3221f65f262d34e0b5c8`.
 - **Script asset commit:** `db1831ce06b0656e8ec4dfab3d4387abbee548f5`.
+- **Stable Candidate module commit:** `8566813ff013e554a94b4408c2effa5f4cf98152`.
+- **Candidate download:** `https://raw.githubusercontent.com/Carson614/WeatherKit-WK3-Test/8566813ff013e554a94b4408c2effa5f4cf98152/wk3-stable-candidate-20261108/WK3-WeatherKit-Stable-Candidate.sgmodule`.
 - **Candidate-only configuration change:** `WeatherAlerts.ExperimentalRaw1` defaults to `false`. No source or request/response bundle logic changed.
 - **Rollback:** Disable this candidate and restore the fixed source module link in `README.md`; never run both overlapping modules together.
 
