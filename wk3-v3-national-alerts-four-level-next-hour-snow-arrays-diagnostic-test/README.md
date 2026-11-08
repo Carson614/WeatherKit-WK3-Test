@@ -28,6 +28,12 @@ Tests cover rain, snow, sleet, dry intervals, light-flurry descriptions, heavy-s
 
 The final compiled `response.dev.bundle.js` is rebuilt from the pinned accepted response bundle plus the current local WK3 codec and arena adapter. The build script fails if required snow conversion markers are absent, and final-bundle tests execute the compiled converter itself. This is a fixed-anchor augmentation, not a complete Rollup source build; the private GitHub Packages dependency previously returned 401.
 
-No snow/sleet iPhone acceptance is claimed. The Tangshan snow alert is not evidence of minute-snow UI rendering. After installing this module separately, check `X-WK3-NextHour-Diag` for `result=injected`, then verify the Apple Weather minute panel actually presents snowfall and compare type, amount, probability, and timestamps with the provider. A synthetic FlatBuffer round trip cannot establish the iPhone UI behavior.
+### Real-device acceptance — 2026-11-08
+
+An iPhone running Apple Weather in Gaizhou, Liaoning, accepted this experiment: `X-WK3-NextHour-Diag` reported `WK3NH/5;...;result=injected`; Apple Weather displayed snow, “continuous snow for the next hour,” and its native minute-by-minute snowfall chart with changing intensity. US AQI and yesterday comparison displayed normally. Weather alerts remained intact, and unmatched events safely retained Apple’s original collection details without an incorrect rewrite.
+
+This verifies successful WK3 b66 minute-snow injection, snow recognition, and native chart rendering on a real iPhone. It does **not** verify each minute against ColorfulClouds or establish forecast amount/timing accuracy. A red highway hazardous-weather alert observed near Gaizhou is only an indirect association with an Apple `raw1` event; it is not evidence for `raw1 → Extreme` and does not justify a Liaoning-specific alert mapping.
+
+The accepted artifact is frozen at module commit `3558f8e4f28db4d996aa3221f65f262d34e0b5c8`; its request/response assets are pinned to commit `db1831ce06b0656e8ec4dfab3d4387abbee548f5`. See [`tests/real-device-acceptance.md`](tests/real-device-acceptance.md) and [`ACCEPTANCE_HISTORY.md`](ACCEPTANCE_HISTORY.md) for the test record and append-only history. This documentation update does not change the module or bundles.
 
 Upstream material is retained under Apache-2.0; see `LICENSE`.
